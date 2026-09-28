@@ -105,10 +105,20 @@ Todas están documentadas en [`.env.example`](.env.example) y se validan con Zod
 | Tipo                   | Variables                                                                                                                                                     | Cuándo se definen                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | **Build** (públicas)   | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_ENABLED`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Al ejecutar `next build`. En Docker, como `--build-arg`. Cambiarlas exige reconstruir. |
-| **Runtime** (secretas) | `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `RATE_LIMIT_SALT`, `SUPABASE_FORMULARIO_SECRETO`, `SUPABASE_INTERNAL_URL` (opcional)                                | Al iniciar el servidor. En Docker, con `--env-file` o `-e`.                            |
+| **Runtime** (secretas) | `RATE_LIMIT_SALT`, `SUPABASE_FORMULARIO_SECRETO`; opcionales: `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `SUPABASE_INTERNAL_URL`                               | Al iniciar el servidor. En Docker, con `--env-file` o `-e`.                            |
 
-Las variables de runtime se validan al arrancar (`src/instrumentation.ts`): si falta alguna,
-el servidor no inicia. `SUPABASE_SERVICE_ROLE_KEY` **no se usa** en este proyecto.
+Las variables de runtime se validan al arrancar (`src/instrumentation.ts`): si falta una
+obligatoria, el servidor no inicia y las páginas dinámicas (formulario, panel) responden
+error 500; el motivo exacto aparece en los logs (en Vercel: Project → Logs).
+`SUPABASE_SERVICE_ROLE_KEY` **no se usa** en este proyecto.
+
+- **Generar `RATE_LIMIT_SALT` y `SUPABASE_FORMULARIO_SECRETO`:** no se obtienen de ningún
+  servicio; son valores aleatorios que se generan una vez (uno distinto para cada una):
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+- **`RESEND_API_KEY` (opcional):** envía el correo de aviso cuando llega un contacto. Sin ella
+  el aviso se omite, pero los contactos se guardan igual y se ven en `/admin/leads`.
 
 - `NEXT_PUBLIC_SITE_URL` admite el dominio sin protocolo (`dominio.cl` → `https://dominio.cl`).
   En Vercel puede omitirse: se usa el dominio de producción del proyecto.
@@ -142,7 +152,7 @@ Los leads solo se crean con la función `crear_lead()`, que exige un secreto gua
 `seed.sql`. En producción, **una sola vez**:
 
 ```bash
-openssl rand -hex 32     # genera el secreto
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # genera el secreto
 ```
 
 1. Supabase Dashboard → SQL Editor, ejecutar (con el valor generado):

@@ -22,6 +22,11 @@ import { z } from "zod";
 /** Trata "" como "no definida" (algunos paneles y `--build-arg` sin valor dejan cadenas vacías). */
 const vacioComoIndefinido = (valor: unknown) => (valor === "" ? undefined : valor);
 
+/** Mensaje cuando falta un secreto que se genera localmente (no viene de ningún servicio). */
+const SECRETO_FALTANTE =
+  "falta. Es un valor aleatorio que se genera una vez con: " +
+  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" (ver README)`;
+
 /** Interruptor booleano en texto ("true"/"false", "1"/"0", "yes"/"no"...). */
 const interruptor = (porDefecto: boolean) =>
   z.preprocess(vacioComoIndefinido, z.stringbool().default(porDefecto));
@@ -60,13 +65,21 @@ const esquemaServidor = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     /** Clave secreta de Turnstile. Obligatoria solo con el CAPTCHA activo. */
     TURNSTILE_SECRET_KEY: z.preprocess(vacioComoIndefinido, z.string().optional()),
-    /** API key de Resend (re_...). */
-    RESEND_API_KEY: z.string().startsWith("re_"),
+    /**
+     * API key de Resend (re_...). Opcional: sin ella no se envía el correo de aviso de
+     * nuevos contactos, pero los contactos se guardan igual y se ven en /admin/leads.
+     */
+    RESEND_API_KEY: z.preprocess(
+      vacioComoIndefinido,
+      z.string().startsWith("re_", 'debe comenzar con "re_"').optional(),
+    ),
     /**
      * Sal secreta para calcular el hash de las IP en el rate limiting.
      * Así nunca se almacena la IP en texto plano. Generar con: openssl rand -hex 32
      */
-    RATE_LIMIT_SALT: z.string().min(32, "RATE_LIMIT_SALT debe tener al menos 32 caracteres"),
+    RATE_LIMIT_SALT: z
+      .string({ error: SECRETO_FALTANTE })
+      .min(32, "debe tener al menos 32 caracteres"),
     /**
      * Secreto compartido con las funciones crear_lead() y verificar_rate_limit() de
      * la base de datos (guardado en Supabase Vault como "formulario_secreto").
@@ -74,8 +87,8 @@ const esquemaServidor = z
      * clave pública. NO es la service_role key: solo habilita esas dos funciones.
      */
     SUPABASE_FORMULARIO_SECRETO: z
-      .string()
-      .min(32, "SUPABASE_FORMULARIO_SECRETO debe tener al menos 32 caracteres"),
+      .string({ error: `${SECRETO_FALTANTE}. Además debe guardarse en Supabase Vault` })
+      .min(32, "debe tener al menos 32 caracteres"),
     /**
      * Opcional. URL de Supabase vista DESDE EL SERVIDOR cuando difiere de la del
      * navegador. Caso típico: la app corre en Docker y Supabase local en el host,

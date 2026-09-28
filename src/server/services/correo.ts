@@ -98,13 +98,20 @@ export function plantillaNuevoLead(datos: DatosContacto, fecha = new Date()): Co
  * Envía el aviso de un nuevo lead al correo de notificaciones.
  * Lanza un error si Resend no acepta el envío (el llamador decide qué hacer).
  */
-export async function enviarNotificacionNuevoLead(leadId: string, datos: DatosContacto) {
+export async function enviarNotificacionNuevoLead(
+  leadId: string,
+  datos: DatosContacto,
+): Promise<boolean> {
+  // Sin Resend configurado el aviso se omite (el lead ya está guardado).
+  const claveApi = envServidor().RESEND_API_KEY;
+  if (!claveApi) return false;
+
   const { asunto, html, texto } = plantillaNuevoLead(datos);
 
   const respuesta = await fetch(URL_RESEND, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${envServidor().RESEND_API_KEY}`,
+      Authorization: `Bearer ${claveApi}`,
       "Content-Type": "application/json",
       // Si el envío se reintenta, Resend no duplica el correo.
       "Idempotency-Key": `lead-${leadId}`,
@@ -125,4 +132,5 @@ export async function enviarNotificacionNuevoLead(leadId: string, datos: DatosCo
     // Solo el código HTTP: el cuerpo podría repetir direcciones de correo.
     throw new Error(`Resend rechazó el envío (HTTP ${respuesta.status})`);
   }
+  return true;
 }
