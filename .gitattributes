@@ -1,0 +1,9 @@
+# Forzar LF: evita problemas con scripts y archivos copiados a contenedores Linux.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff2 binary

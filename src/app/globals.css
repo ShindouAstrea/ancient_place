@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/*
+ * Tokens de diseño. Paleta suave (verde salvia + crema + un acento terracota)
+ * que transmite calma y calidez. Todos los pares texto/fondo usados cumplen
+ * WCAG AA (la mayoría AAA):
+ *   tinta / crema 13.9 · tinta-suave / crema 7.1 · blanco / salvia-700 7.5
+ *   terracota / crema 5.8 · blanco / whatsapp 5.8
+ */
+@theme {
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-lora), ui-serif, Georgia, serif;
+
+  --color-crema: #fbf7f0;
+  --color-crema-oscuro: #f3ede2;
+  --color-tinta: #1f2a24;
+  --color-tinta-suave: #4a5750;
+
+  --color-salvia-50: #f2f7f4;
+  --color-salvia-100: #e6efe9;
+  --color-salvia-200: #cfe0d5;
+  --color-salvia-300: #9db8a8;
+  --color-salvia-700: #2f5d4a;
+  --color-salvia-800: #244a3b;
+  --color-salvia-900: #1b3a2e;
+
+  --color-terracota: #9a4a2c;
+  --color-whatsapp: #1a7446;
+  --color-whatsapp-oscuro: #145c37;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    /* Evita que el header fijo tape el título al navegar a una sección (#ancla). */
+    scroll-padding-top: 5.5rem;
+  }
+
+  body {
+    @apply bg-crema text-lg leading-relaxed text-tinta antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif text-balance text-tinta;
+  }
+
+  /* Foco visible y consistente para navegación con teclado. */
+  :focus-visible {
+    @apply rounded-sm outline-3 outline-offset-3 outline-salvia-700;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

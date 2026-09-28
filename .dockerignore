@@ -1,0 +1,39 @@
+# Dependencias y artefactos: se generan dentro de la imagen
+node_modules
+.pnpm-store
+.next
+out
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Secretos: NUNCA deben entrar al contexto de build
+.env
+.env.*
+!.env.example
+
+# Control de versiones, CI y editor
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+.editorconfig
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+compose*.yml
+
+# Supabase (migraciones y estado local; la app no los necesita para compilar)
+supabase
+
+# Documentación, scripts auxiliares y logs
+*.md
+scripts
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+.vercel

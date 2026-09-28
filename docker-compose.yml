@@ -1,0 +1,41 @@
+# =============================================================================
+# Desarrollo local con Docker (hot reload).
+#   pnpm docker:dev        (equivale a: docker compose up --build)
+#
+# Supabase local NO se define aquí: se levanta aparte con `pnpm db:start`
+# (la CLI de Supabase gestiona sus propios contenedores). Ver README.
+# =============================================================================
+name: hogar-web
+
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.local
+        required: true
+    environment:
+      # El NAVEGADOR (en tu equipo) llega a Supabase por 127.0.0.1:54321, pero
+      # DENTRO del contenedor 127.0.0.1 es el propio contenedor. El código de
+      # servidor usa esta URL para alcanzar Supabase local en el host.
+      SUPABASE_INTERNAL_URL: http://host.docker.internal:54321
+      # Los bind mounts de Docker Desktop (Windows/macOS) no propagan los eventos
+      # de cambio de archivos, así que el hot reload usa polling. Turbopack no
+      # detectó cambios ni con polling sobre un mount de Windows (probado con
+      # Next 16.3), por eso el contenedor usa webpack (ver "command").
+      WATCHPACK_POLLING: "true"
+    # Fuera de Docker, `pnpm dev` sigue usando Turbopack (más rápido).
+    command: ["node_modules/.bin/next", "dev", "--webpack", "--hostname", "0.0.0.0"]
+    extra_hosts:
+      # Necesario en Linux; Docker Desktop (Windows/macOS) ya lo resuelve.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Código fuente montado para hot reload.
+      - .:/app
+      # Volúmenes anónimos: conservan node_modules y .next del contenedor
+      # (dependencias instaladas para Linux) en lugar de los del host.
+      - /app/node_modules
+      - /app/.next

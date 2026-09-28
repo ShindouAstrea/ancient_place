@@ -1,0 +1,5 @@
+# pnpm 11 bloquea los scripts de instalación por defecto (seguridad de la cadena
+# de suministro). Solo se habilitan explícitamente los que sean necesarios.
+allowBuilds:
+  # Usa binarios precompilados por plataforma; su postinstall es solo un respaldo.
+  unrs-resolver: false

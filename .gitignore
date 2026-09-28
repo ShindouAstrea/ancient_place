@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Variables de entorno (nunca versionar secretos)
+.env
+.env*.local
+.env.production
+
+# Supabase CLI
+supabase/.branches/
+supabase/.temp/
+
+# Logs y varios
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+coverage/
+.vercel/
