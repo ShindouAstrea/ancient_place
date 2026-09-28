@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { envPublico, envServidor } from "@/lib/env";
 import type { Database } from "@/types/database";
 
-import { nombreCookieAuth } from "./config";
+import { opcionesCookieAuth } from "./config";
 
 /**
  * Cliente de Supabase para código de SERVIDOR (Server Components, Server Actions,
@@ -21,7 +21,7 @@ export async function crearClienteServidor() {
   const url = envServidor().SUPABASE_INTERNAL_URL ?? envPublico.NEXT_PUBLIC_SUPABASE_URL;
 
   return createServerClient<Database>(url, envPublico.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
-    cookieOptions: { name: nombreCookieAuth },
+    cookieOptions: opcionesCookieAuth,
     cookies: {
       getAll() {
         return almacenCookies.getAll();

@@ -25,6 +25,8 @@ declare global {
 }
 
 const URL_SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+/** Ancho mínimo del modo "flexible" de Turnstile, según Cloudflare. */
+const ANCHO_MINIMO_FLEXIBLE = 300;
 let cargaScript: Promise<void> | null = null;
 
 /** Carga el script de Turnstile una sola vez, aunque haya varios widgets. */
@@ -86,7 +88,9 @@ export function Turnstile({ siteKey, accion, reinicio, onEstado }: Props) {
         action: accion,
         language: "es",
         theme: "light",
-        size: "flexible",
+        // "flexible" mide al menos 300 px de ancho; en celulares angostos el espacio
+        // disponible es menor, así que se usa "compact" (150 × 140 px) para no desbordar.
+        size: elemento.clientWidth < ANCHO_MINIMO_FLEXIBLE ? "compact" : "flexible",
         "refresh-expired": "auto",
         callback: () => onEstadoRef.current("listo"),
         "expired-callback": () => onEstadoRef.current("pendiente"),
@@ -120,6 +124,11 @@ export function Turnstile({ siteKey, accion, reinicio, onEstado }: Props) {
     }
   }, [reinicio]);
 
-  // Altura reservada: evita saltos de diseño (CLS) cuando aparece el widget.
-  return <div ref={contenedor} className="min-h-[65px]" />;
+  // Altura reservada para evitar saltos de diseño (CLS) al aparecer el widget:
+  // 74 px en modo "flexible" y 149 px en "compact" (medidos; container query sobre el ancho real).
+  return (
+    <div className="@container">
+      <div ref={contenedor} className="min-h-[74px] @max-[300px]:min-h-[149px]" />
+    </div>
+  );
 }

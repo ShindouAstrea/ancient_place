@@ -2,18 +2,19 @@ import "server-only";
 
 import { siteConfig } from "@/config/site";
 import { envPublico, envServidor } from "@/lib/env";
-import { enlaceTelefono, enlaceWhatsapp } from "@/lib/utils/contacto";
+import {
+  enlaceTelefono,
+  enlaceWhatsapp,
+  esCelularChileno,
+  formatearTelefono,
+  mensajeRespuestaWhatsapp,
+} from "@/lib/utils/contacto";
 import { escaparHtml } from "@/lib/utils/html";
 import type { DatosContacto } from "@/server/validators/contacto";
 
 const URL_RESEND = "https://api.resend.com/emails";
 
 type CorreoNotificacion = { asunto: string; html: string; texto: string };
-
-/** Los celulares chilenos comienzan con +569; solo a ellos se ofrece WhatsApp. */
-function esCelular(telefono: string) {
-  return telefono.startsWith("+569");
-}
 
 function fechaChile(fecha: Date) {
   return new Intl.DateTimeFormat("es-CL", {
@@ -25,17 +26,16 @@ function fechaChile(fecha: Date) {
 
 /** Plantilla simple con estilos en línea (los clientes de correo ignoran CSS externo). */
 export function plantillaNuevoLead(datos: DatosContacto, fecha = new Date()): CorreoNotificacion {
-  const primerNombre = datos.nombre.split(/\s+/)[0] ?? datos.nombre;
-  const whatsapp = enlaceWhatsapp(
-    datos.telefono,
-    `Hola ${primerNombre}, te escribimos de ${siteConfig.nombre} por tu solicitud de información.`,
-  );
+  const whatsapp = enlaceWhatsapp(datos.telefono, mensajeRespuestaWhatsapp(datos.nombre));
   const panel = `${envPublico.NEXT_PUBLIC_SITE_URL}/admin/leads`;
   const e = escaparHtml;
 
   const filas: [string, string][] = [
     ["Nombre", e(datos.nombre)],
-    ["Teléfono", `<a href="${e(enlaceTelefono(datos.telefono))}">${e(datos.telefono)}</a>`],
+    [
+      "Teléfono",
+      `<a href="${e(enlaceTelefono(datos.telefono))}">${e(formatearTelefono(datos.telefono))}</a>`,
+    ],
     ["Correo", `<a href="mailto:${e(datos.email)}">${e(datos.email)}</a>`],
     ["Parentesco", e(datos.parentesco ?? "No indicado")],
     ["Recibido", e(fechaChile(fecha))],
@@ -58,9 +58,9 @@ export function plantillaNuevoLead(datos: DatosContacto, fecha = new Date()): Co
         .join("\n      ")}
     </table>
     <h2 style="margin:20px 0 8px;font-size:17px">Mensaje</h2>
-    <p style="margin:0;padding:12px;background:#f2f7f4;border-radius:12px;white-space:pre-wrap;font-size:16px;line-height:1.5">${e(datos.mensaje)}</p>
+    <p style="margin:0;padding:12px;background:#f2f7f4;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font-size:16px;line-height:1.5">${e(datos.mensaje)}</p>
     <div style="margin-top:20px">
-      ${esCelular(datos.telefono) ? boton(whatsapp, "Responder por WhatsApp", "#1a7446") : ""}
+      ${esCelularChileno(datos.telefono) ? boton(whatsapp, "Responder por WhatsApp", "#1a7446") : ""}
       ${boton(enlaceTelefono(datos.telefono), "Llamar", "#2f5d4a")}
     </div>
     <p style="margin:20px 0 0;font-size:14px;color:#4a5750">
@@ -84,7 +84,7 @@ export function plantillaNuevoLead(datos: DatosContacto, fecha = new Date()): Co
     "Mensaje:",
     datos.mensaje,
     "",
-    ...(esCelular(datos.telefono) ? [`Responder por WhatsApp: ${whatsapp}`] : []),
+    ...(esCelularChileno(datos.telefono) ? [`Responder por WhatsApp: ${whatsapp}`] : []),
     `Panel: ${panel}`,
   ].join("\n");
 

@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(33);
+select plan(35);
 
 -- El test usa su propio secreto: reemplaza temporalmente el del seed (se revierte).
 delete from vault.secrets where name = 'formulario_secreto';
@@ -128,6 +128,13 @@ select throws_ok(
   'rate limit: rechaza acciones no definidas'
 );
 
+select is(
+  (select array_agg(public.verificar_rate_limit(current_setting('test.secreto'), repeat('e', 64), 'login') order by g)
+     from generate_series(1, 11) as g),
+  array[true, true, true, true, true, true, true, true, true, true, false],
+  'rate limit de acceso al panel: permite 10 solicitudes y bloquea la 11.ª'
+);
+
 reset role;
 
 -- El lead creado por la función quedó con los valores que fija la base de datos.
@@ -149,6 +156,10 @@ select set_config(
 
 select is(public.is_admin(), false, 'no admin: is_admin() es false');
 select is((select count(*)::int from public.leads), 0, 'no admin: no ve ningún lead');
+select is_empty(
+  $$ update public.leads set estado = 'descartado' returning id $$,
+  'no admin: NO puede cambiar el estado de ningún lead'
+);
 select throws_ok(
   $$ insert into public.leads (nombre, telefono, email, mensaje, consentimiento)
      values ('Directo', '+56912345678', 'x@example.com', 'Mensaje de prueba', true) $$,
