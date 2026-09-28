@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import {
+  cambiarContrasena,
   cerrarSesion,
   iniciarSesionConContrasena,
   obtenerSesionActual,
@@ -71,6 +72,55 @@ export async function iniciarSesion(
     case "error":
       // Solo el código de Supabase: nunca el correo ni la contraseña.
       console.error("[acceso] Error de Supabase Auth al iniciar sesión:", resultado.codigo);
+      return { ok: false, motivo: "interno" };
+  }
+}
+
+export type MotivoFalloCambioContrasena =
+  | "actual-incorrecta"
+  | "misma-contrasena"
+  | "debil"
+  | "reautenticar"
+  | "verificacion"
+  | "limite"
+  | "interno";
+
+/**
+ * Cambio de contraseña del administrador con sesión iniciada. Comparte el límite de
+ * intentos del login: comprobar la contraseña actual también sirve para adivinarla.
+ */
+export async function cambiarContrasenaAdmin(
+  actual: string,
+  nueva: string,
+  tokenCaptcha: string,
+  ip: string | null,
+): Promise<{ ok: true } | { ok: false; motivo: MotivoFalloCambioContrasena }> {
+  await requerirAdmin();
+
+  try {
+    if (!(await permitirIntento(ip, "login"))) return { ok: false, motivo: "limite" };
+  } catch (error) {
+    console.error("[cuenta] No se pudo verificar el límite de intentos:", (error as Error).message);
+    return { ok: false, motivo: "interno" };
+  }
+
+  const resultado = await cambiarContrasena(actual, nueva, tokenCaptcha);
+  switch (resultado.tipo) {
+    case "ok":
+      return { ok: true };
+    // La sesión venció entre la carga de la página y el envío.
+    case "sin-sesion":
+      redirect("/admin/login?motivo=sesion-requerida");
+    case "actual-incorrecta":
+    case "misma-contrasena":
+    case "debil":
+    case "reautenticar":
+    case "limite":
+      return { ok: false, motivo: resultado.tipo };
+    case "captcha":
+      return { ok: false, motivo: "verificacion" };
+    case "error":
+      console.error("[cuenta] Error de Supabase Auth al cambiar la contraseña:", resultado.codigo);
       return { ok: false, motivo: "interno" };
   }
 }

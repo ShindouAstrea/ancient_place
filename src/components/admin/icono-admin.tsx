@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  CircleUser,
   ClipboardList,
   House,
   Inbox,
@@ -13,6 +14,7 @@ import type { NombreIconoAdmin } from "@/config/admin";
 /** Mapa explícito: solo se incluyen en el bundle los íconos que se usan. */
 const iconos: Record<NombreIconoAdmin, LucideIcon> = {
   CalendarDays,
+  CircleUser,
   ClipboardList,
   House,
   Inbox,

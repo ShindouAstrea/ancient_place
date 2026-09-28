@@ -171,11 +171,12 @@ y actualizar la variable. Si el secreto falta o no coincide, el formulario deja 
 
 ## Panel de administración
 
-| Ruta           | Contenido                                                          |
-| -------------- | ------------------------------------------------------------------ |
-| `/admin/login` | Ingreso con correo y contraseña                                    |
-| `/admin`       | Inicio: resumen de contactos y módulos (actuales y futuros)        |
-| `/admin/leads` | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
+| Ruta            | Contenido                                                          |
+| --------------- | ------------------------------------------------------------------ |
+| `/admin/login`  | Ingreso con correo y contraseña                                    |
+| `/admin`        | Inicio: resumen de contactos y módulos (actuales y futuros)        |
+| `/admin/leads`  | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
+| `/admin/cuenta` | Mi cuenta: cambiar la contraseña                                   |
 
 ### Entrar en local
 
@@ -184,16 +185,18 @@ prueba del seed: **`admin@example.com`** / **`admin-local-12345`** (solo existe 
 
 ### Capas de seguridad del acceso
 
-| Capa                                                                  | Protege contra                      |
-| --------------------------------------------------------------------- | ----------------------------------- |
-| Registro público deshabilitado                                        | Que cualquiera cree una cuenta      |
-| Contraseñas de 12 caracteres o más                                    | Contraseñas fáciles de adivinar     |
-| Rate limit: 10 intentos por hora por IP                               | Probar contraseñas por fuerza bruta |
-| CAPTCHA (Turnstile) opcional, verificado por Supabase                 | Intentos automatizados              |
-| Mismo mensaje si el correo no existe o la contraseña es incorrecta    | Averiguar qué correos tienen cuenta |
-| Rol en la tabla `admins`, verificado en cada página y acción, más RLS | Cuentas sin rol de administrador    |
-| Cookie de sesión `httpOnly`                                           | Robo de la sesión mediante XSS      |
-| `noindex` (metadata + cabecera `X-Robots-Tag`)                        | Que el panel aparezca en buscadores |
+| Capa                                                                  | Protege contra                       |
+| --------------------------------------------------------------------- | ------------------------------------ |
+| Registro público deshabilitado                                        | Que cualquiera cree una cuenta       |
+| Contraseñas de 12 caracteres o más                                    | Contraseñas fáciles de adivinar      |
+| Rate limit: 10 intentos por hora por IP                               | Probar contraseñas por fuerza bruta  |
+| CAPTCHA (Turnstile) opcional, verificado por Supabase                 | Intentos automatizados               |
+| Mismo mensaje si el correo no existe o la contraseña es incorrecta    | Averiguar qué correos tienen cuenta  |
+| Rol en la tabla `admins`, verificado en cada página y acción, más RLS | Cuentas sin rol de administrador     |
+| Cookie de sesión `httpOnly`                                           | Robo de la sesión mediante XSS       |
+| Sesión verificada contra el servidor de Auth en cada página           | Seguir usando una sesión ya cerrada  |
+| Cambio de contraseña exige la actual y cierra los otros dispositivos  | Uso de un celular con sesión abierta |
+| `noindex` (metadata + cabecera `X-Robots-Tag`)                        | Que el panel aparezca en buscadores  |
 
 Para agregar un módulo (agenda, inventario, pacientes): crear su página en
 `src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a `requerirAdmin()` en ella y en sus
@@ -215,7 +218,12 @@ acceso al panel". Para quitar el acceso: `delete from public.admins where email 
 
 ### Cambiar la contraseña de un administrador
 
-SQL Editor (Supabase guarda la contraseña cifrada con bcrypt):
+Cada administrador la cambia en **Mi cuenta** (`/admin/cuenta`): pide la contraseña actual y,
+al guardar, cierra la sesión en sus otros dispositivos.
+
+Si alguien **olvidó** su contraseña, otro administrador (o quien administre Supabase) le
+asigna una temporal en el SQL Editor (Supabase la guarda cifrada con bcrypt), y la persona
+la cambia después en Mi cuenta:
 
 ```sql
 update auth.users

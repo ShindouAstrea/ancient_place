@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, Eye, EyeOff, LoaderCircle, LogIn } from "lucide-react";
+import { CircleAlert, LoaderCircle, LogIn } from "lucide-react";
 import {
   startTransition,
   useActionState,
@@ -11,10 +11,10 @@ import {
 } from "react";
 
 import { Boton } from "@/components/ui/boton";
-import { CampoTexto, claseControl } from "@/components/ui/campo";
+import { CampoTexto } from "@/components/ui/campo";
+import { CampoContrasena } from "@/components/ui/campo-contrasena";
 import { Turnstile } from "@/components/ui/turnstile";
 import { captcha } from "@/lib/env";
-import { cn } from "@/lib/utils/cn";
 import { iniciarSesionAccion } from "@/server/actions/auth";
 import {
   esquemaInicioSesion,
@@ -32,7 +32,6 @@ export function FormularioAcceso() {
     Record<CampoInicioSesion, string>
   > | null>(null);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
-  const [verContrasena, setVerContrasena] = useState(false);
   // Sin CAPTCHA no hay verificación que esperar: el formulario queda listo de inmediato.
   const [turnstile, setTurnstile] = useState<"pendiente" | "listo" | "error">(
     captcha.activo ? "pendiente" : "listo",
@@ -97,8 +96,6 @@ export function FormularioAcceso() {
     setReinicioTurnstile((n) => n + 1);
   }
 
-  const describedByContrasena = errores.password ? "password-error" : undefined;
-
   return (
     <form onSubmit={alEnviar} noValidate aria-busy={enviando} className="flex flex-col gap-5">
       <CampoTexto
@@ -112,47 +109,14 @@ export function FormularioAcceso() {
         onChange={() => erroresCliente?.email && setErroresCliente(null)}
       />
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="font-semibold">
-          Contraseña
-        </label>
-        <div className="relative">
-          <input
-            ref={refContrasena}
-            id="password"
-            name="password"
-            type={verContrasena ? "text" : "password"}
-            autoComplete="current-password"
-            required
-            maxLength={72}
-            aria-invalid={errores.password ? true : undefined}
-            aria-describedby={describedByContrasena}
-            onChange={() => erroresCliente?.password && setErroresCliente(null)}
-            className={cn(claseControl, "pr-14")}
-          />
-          <button
-            type="button"
-            onClick={() => setVerContrasena((v) => !v)}
-            aria-pressed={verContrasena}
-            aria-controls="password"
-            className="absolute inset-y-0.5 right-0.5 flex w-12 items-center justify-center rounded-r-[10px] text-salvia-800 hover:bg-salvia-50"
-          >
-            {verContrasena ? (
-              <EyeOff className="size-6" aria-hidden="true" />
-            ) : (
-              <Eye className="size-6" aria-hidden="true" />
-            )}
-            <span className="sr-only">
-              {verContrasena ? "Ocultar contraseña" : "Mostrar contraseña"}
-            </span>
-          </button>
-        </div>
-        {errores.password ? (
-          <p id="password-error" className="text-base font-semibold text-terracota">
-            {errores.password}
-          </p>
-        ) : null}
-      </div>
+      <CampoContrasena
+        ref={refContrasena}
+        id="password"
+        etiqueta="Contraseña"
+        autoComplete="current-password"
+        error={errores.password}
+        onChange={() => erroresCliente?.password && setErroresCliente(null)}
+      />
 
       {captcha.activo ? (
         <Turnstile

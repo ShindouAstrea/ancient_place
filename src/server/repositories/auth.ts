@@ -1,6 +1,7 @@
 import "server-only";
 
 import { crearClienteServidor } from "@/lib/supabase/server";
+import { crearClienteVerificacion } from "@/lib/supabase/verificacion";
 
 import { ErrorRepositorio } from "./errores";
 
@@ -11,23 +12,26 @@ export type SesionActual = { activa: false } | { activa: true; admin: Administra
 
 /**
  * Lee la sesión desde las cookies y consulta si el usuario es administrador.
- * getClaims() valida la firma del token; is_admin() consulta la tabla admins.
+ *
+ * Usa getUser(), que consulta al servidor de Auth, y no getClaims(), que solo valida
+ * la firma del token localmente: así una sesión cerrada desde otro dispositivo (por
+ * ejemplo, al cambiar la contraseña) o una cuenta eliminada pierde el acceso al
+ * panel de inmediato, y no recién cuando vence el token (hasta 1 hora).
+ * is_admin() consulta la tabla admins.
  */
 export async function obtenerSesionActual(): Promise<SesionActual> {
   const supabase = await crearClienteServidor();
 
-  const { data, error } = await supabase.auth.getClaims();
-  const claims = data?.claims;
-  if (error || !claims?.sub) return { activa: false };
+  const { data, error } = await supabase.auth.getUser();
+  const usuario = data?.user;
+  if (error || !usuario) return { activa: false };
 
   const { data: esAdmin, error: errorRol } = await supabase.rpc("is_admin");
   if (errorRol) throw new ErrorRepositorio("is_admin", errorRol.code);
 
   return {
     activa: true,
-    admin: esAdmin
-      ? { id: claims.sub, email: typeof claims.email === "string" ? claims.email : "" }
-      : null,
+    admin: esAdmin ? { id: usuario.id, email: usuario.email ?? "" } : null,
   };
 }
 
@@ -86,6 +90,78 @@ export async function iniciarSesionConContrasena(
     return { tipo: "sin-acceso" };
   }
   return { tipo: "admin" };
+}
+
+export type ResultadoCambioContrasena =
+  | { tipo: "ok" }
+  | { tipo: "sin-sesion" }
+  | { tipo: "actual-incorrecta" }
+  | { tipo: "misma-contrasena" }
+  | { tipo: "debil" }
+  | { tipo: "reautenticar" }
+  | { tipo: "captcha" }
+  | { tipo: "limite" }
+  | { tipo: "error"; codigo: string };
+
+const codigoDe = (error: { code?: string; status?: number }) =>
+  error.code ?? `http_${error.status ?? "desconocido"}`;
+
+/**
+ * Cambia la contraseña del usuario con sesión iniciada.
+ *
+ * 1. Comprueba la contraseña ACTUAL con un cliente aparte, sin cookies (no toca la
+ *    sesión del navegador), y cierra de inmediato esa sesión temporal. Así, alguien que
+ *    encuentre un dispositivo con la sesión abierta no puede cambiar la contraseña.
+ * 2. Guarda la nueva contraseña.
+ * 3. Cierra las sesiones abiertas en OTROS dispositivos.
+ */
+export async function cambiarContrasena(
+  actual: string,
+  nueva: string,
+  tokenCaptcha: string,
+): Promise<ResultadoCambioContrasena> {
+  const supabase = await crearClienteServidor();
+  const { data } = await supabase.auth.getClaims();
+  const email = data?.claims?.email;
+  if (typeof email !== "string" || !email) return { tipo: "sin-sesion" };
+
+  const verificador = crearClienteVerificacion();
+  const { error: errorActual } = await verificador.auth.signInWithPassword({
+    email,
+    password: actual,
+    options: { captchaToken: tokenCaptcha || undefined },
+  });
+  if (errorActual) {
+    switch (errorActual.code) {
+      case "invalid_credentials":
+        return { tipo: "actual-incorrecta" };
+      case "captcha_failed":
+        return { tipo: "captcha" };
+      case "over_request_rate_limit":
+        return { tipo: "limite" };
+      default:
+        return { tipo: "error", codigo: codigoDe(errorActual) };
+    }
+  }
+  // scope "local": revoca solo la sesión temporal de la verificación, no la del navegador.
+  await verificador.auth.signOut({ scope: "local" });
+
+  const { error: errorNueva } = await supabase.auth.updateUser({ password: nueva });
+  if (errorNueva) {
+    switch (errorNueva.code) {
+      case "same_password":
+        return { tipo: "misma-contrasena" };
+      case "weak_password":
+        return { tipo: "debil" };
+      case "reauthentication_needed":
+        return { tipo: "reautenticar" };
+      default:
+        return { tipo: "error", codigo: codigoDe(errorNueva) };
+    }
+  }
+
+  await supabase.auth.signOut({ scope: "others" });
+  return { tipo: "ok" };
 }
 
 /** Cierra la sesión solo en este dispositivo (scope "local"). */

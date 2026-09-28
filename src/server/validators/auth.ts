@@ -29,6 +29,44 @@ export type EstadoInicioSesion =
       limpiarContrasena?: boolean;
     };
 
+/** Largo mínimo de contraseña: debe coincidir con Supabase (config.toml y Dashboard). */
+export const LARGO_MINIMO_CONTRASENA = 12;
+
+/** Cambio de contraseña desde "Mi cuenta". Se usa en el cliente y en el servidor. */
+export const esquemaCambioContrasena = z
+  .object({
+    actual: z
+      .string()
+      .min(1, { error: "Ingresa tu contraseña actual." })
+      .max(72, { error: "La contraseña es demasiado larga." }),
+    nueva: z
+      .string()
+      .min(LARGO_MINIMO_CONTRASENA, {
+        error: `La nueva contraseña debe tener al menos ${LARGO_MINIMO_CONTRASENA} caracteres.`,
+      })
+      .max(72, { error: "La nueva contraseña puede tener hasta 72 caracteres." }),
+    repetir: z.string().min(1, { error: "Repite la nueva contraseña." }),
+  })
+  .superRefine((datos, ctx) => {
+    if (datos.repetir && datos.nueva !== datos.repetir) {
+      ctx.addIssue({ code: "custom", path: ["repetir"], message: "Las contraseñas no coinciden." });
+    }
+    if (datos.nueva && datos.nueva === datos.actual) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["nueva"],
+        message: "La nueva contraseña debe ser distinta de la actual.",
+      });
+    }
+  });
+
+export type CampoCambioContrasena = keyof z.input<typeof esquemaCambioContrasena>;
+
+export type EstadoCambioContrasena =
+  | { estado: "inicial" }
+  | { estado: "exito" }
+  | { estado: "error"; mensaje: string; errores?: Partial<Record<CampoCambioContrasena, string>> };
+
 /** Motivos que el login puede mostrar (vienen en ?motivo=...). */
 export const MOTIVOS_LOGIN = ["sin-acceso", "sesion-cerrada", "sesion-requerida"] as const;
 export type MotivoLogin = (typeof MOTIVOS_LOGIN)[number];

@@ -7,7 +7,8 @@
  */
 
 /** Íconos disponibles para el panel. Para agregar uno, súmalo en components/admin/icono-admin.tsx. */
-export type NombreIconoAdmin = "House" | "Inbox" | "CalendarDays" | "Package" | "ClipboardList";
+export type NombreIconoAdmin =
+  "House" | "Inbox" | "CalendarDays" | "Package" | "ClipboardList" | "CircleUser";
 
 export type ModuloAdmin = {
   nombre: string;
@@ -48,8 +49,9 @@ export const modulosAdmin = [
   },
 ] as const satisfies readonly ModuloAdmin[];
 
-/** Elementos del menú: inicio del panel + módulos disponibles. */
+/** Elementos del menú: inicio del panel + módulos disponibles + la cuenta del usuario. */
 export const navegacionAdmin: readonly Pick<ModuloAdmin, "nombre" | "href" | "icono">[] = [
   { nombre: "Inicio", href: "/admin", icono: "House" },
   ...modulosAdmin.filter((m) => m.disponible),
+  { nombre: "Mi cuenta", href: "/admin/cuenta", icono: "CircleUser" },
 ];
