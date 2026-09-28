@@ -6,62 +6,62 @@ import { redirect } from "next/navigation";
 import { obtenerIpCliente } from "@/lib/utils/ip";
 import {
   cerrarSesionActual,
-  confirmarEnlaceAcceso,
-  solicitarEnlaceAcceso,
+  iniciarSesion,
+  type MotivoFalloInicioSesion,
 } from "@/server/services/auth";
 import {
-  esquemaConfirmacionAcceso,
-  esquemaSolicitudAcceso,
-  type EstadoSolicitudAcceso,
+  esquemaInicioSesion,
+  type CampoInicioSesion,
+  type EstadoInicioSesion,
 } from "@/server/validators/auth";
-import { CAMPO_TURNSTILE } from "@/server/validators/contacto";
+import { CAMPO_TURNSTILE, erroresPorCampo } from "@/server/validators/contacto";
 
-const MENSAJES_ERROR = {
+const MENSAJES_ERROR: Record<MotivoFalloInicioSesion, string> = {
+  credenciales: "Correo o contraseña incorrectos.",
+  "sin-acceso": "Esta cuenta no tiene acceso al panel de administración.",
+  "no-confirmada":
+    "Tu cuenta aún no está confirmada. Pide que la confirmen en Supabase (Authentication → Users).",
   verificacion:
     "No pudimos confirmar la verificación de seguridad. Por favor, inténtalo nuevamente.",
   limite: "Hiciste muchos intentos en poco tiempo. Espera un rato y vuelve a intentarlo.",
-  interno: "Tuvimos un problema al procesar tu solicitud. Inténtalo en unos minutos.",
-} as const;
+  interno: "Tuvimos un problema al iniciar sesión. Inténtalo en unos minutos.",
+};
 
-/** Solicitud de enlace de acceso (formulario de /admin/login). */
-export async function solicitarAcceso(
-  _estadoAnterior: EstadoSolicitudAcceso,
+/** Inicio de sesión (formulario de /admin/login). Si todo está bien, redirige al panel. */
+export async function iniciarSesionAccion(
+  _estadoAnterior: EstadoInicioSesion,
   formData: FormData,
-): Promise<EstadoSolicitudAcceso> {
+): Promise<EstadoInicioSesion> {
   const email = formData.get("email");
-  const validacion = esquemaSolicitudAcceso.safeParse({
+  const password = formData.get("password");
+  const validacion = esquemaInicioSesion.safeParse({
     email: typeof email === "string" ? email : "",
+    password: typeof password === "string" ? password : "",
   });
   if (!validacion.success) {
     return {
       estado: "error",
-      mensaje: "Revisa el correo ingresado.",
-      errorEmail: validacion.error.issues[0]?.message,
+      mensaje: "Revisa los datos ingresados.",
+      errores: erroresPorCampo<CampoInicioSesion>(validacion.error),
     };
   }
 
   const token = formData.get(CAMPO_TURNSTILE);
-  const resultado = await solicitarEnlaceAcceso(
+  const resultado = await iniciarSesion(
     validacion.data.email,
+    validacion.data.password,
     typeof token === "string" ? token : "",
     obtenerIpCliente(await headers()),
   );
 
-  return resultado.ok
-    ? { estado: "enviado" }
-    : { estado: "error", mensaje: MENSAJES_ERROR[resultado.motivo] };
-}
+  // redirect() fuera de cualquier try/catch: Next.js lo implementa lanzando una excepción.
+  if (resultado.ok) redirect("/admin");
 
-/** Confirmación del enlace del correo (botón de /admin/confirmar). */
-export async function confirmarAcceso(formData: FormData): Promise<void> {
-  const validacion = esquemaConfirmacionAcceso.safeParse({
-    token_hash: formData.get("token_hash"),
-    type: formData.get("type"),
-  });
-  if (!validacion.success) redirect("/admin/login?motivo=enlace-invalido");
-
-  const resultado = await confirmarEnlaceAcceso(validacion.data.token_hash);
-  redirect(resultado === "admin" ? "/admin" : `/admin/login?motivo=${resultado}`);
+  return {
+    estado: "error",
+    mensaje: MENSAJES_ERROR[resultado.motivo],
+    limpiarContrasena: resultado.motivo === "credenciales",
+  };
 }
 
 /** Cerrar sesión (siempre por POST: un enlace GET podría activarse sin querer). */

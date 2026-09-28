@@ -31,46 +31,61 @@ export async function obtenerSesionActual(): Promise<SesionActual> {
   };
 }
 
+export type ResultadoInicioSesion =
+  | { tipo: "admin" }
+  | { tipo: "sin-acceso" }
+  | { tipo: "credenciales-invalidas" }
+  | { tipo: "no-confirmada" }
+  | { tipo: "captcha" }
+  | { tipo: "limite" }
+  | { tipo: "error"; codigo: string };
+
 /**
- * Pide a Supabase Auth que envíe un enlace mágico.
- * - shouldCreateUser: false → nunca crea usuarios (además el registro está deshabilitado).
- * - captchaToken → si el CAPTCHA está activo en Supabase, lo verifica antes de hacer nada.
- *   Sin token (CAPTCHA desactivado en el sitio) no se envía: Supabase también debe
- *   tenerlo desactivado, o rechazará la solicitud.
- * Devuelve el código de error de Supabase (sin datos personales) o null si se aceptó.
+ * Inicia sesión con correo y contraseña, y la deja activa SOLO si el usuario es
+ * administrador.
+ *
+ * - captchaToken: si el CAPTCHA está activo en Supabase, lo verifica antes de revisar
+ *   la contraseña. Sin token (CAPTCHA desactivado en el sitio) no se envía; Supabase
+ *   también debe tenerlo desactivado, o rechazará la solicitud.
+ * - La verificación del rol usa la MISMA conexión que acaba de iniciar la sesión: las
+ *   cookies nuevas aún no son legibles en esta petición. Si el usuario no es
+ *   administrador, esa sesión se cierra de inmediato y nunca queda activa.
  */
-export async function enviarEnlaceMagico(email: string, tokenCaptcha: string) {
+export async function iniciarSesionConContrasena(
+  email: string,
+  contrasena: string,
+  tokenCaptcha: string,
+): Promise<ResultadoInicioSesion> {
   const supabase = await crearClienteServidor();
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    options: { shouldCreateUser: false, captchaToken: tokenCaptcha || undefined },
+    password: contrasena,
+    options: { captchaToken: tokenCaptcha || undefined },
   });
 
-  return error ? { codigo: error.code ?? `http_${error.status ?? "desconocido"}` } : null;
-}
-
-/**
- * Canjea el enlace mágico e inicia sesión SOLO si el usuario es administrador.
- *
- * La verificación del rol usa la MISMA conexión que acaba de iniciar la sesión:
- * las cookies nuevas aún no son legibles en esta petición. Si el usuario no es
- * administrador, esa sesión se cierra de inmediato y nunca queda activa.
- */
-export async function iniciarSesionConEnlace(
-  tokenHash: string,
-): Promise<"admin" | "sin-acceso" | "enlace-invalido"> {
-  const supabase = await crearClienteServidor();
-
-  const { error } = await supabase.auth.verifyOtp({ type: "email", token_hash: tokenHash });
-  if (error) return "enlace-invalido";
+  if (error) {
+    switch (error.code) {
+      // Supabase responde lo mismo si el correo no existe o si la contraseña es incorrecta.
+      case "invalid_credentials":
+        return { tipo: "credenciales-invalidas" };
+      case "email_not_confirmed":
+        return { tipo: "no-confirmada" };
+      case "captcha_failed":
+        return { tipo: "captcha" };
+      case "over_request_rate_limit":
+        return { tipo: "limite" };
+      default:
+        return { tipo: "error", codigo: error.code ?? `http_${error.status ?? "desconocido"}` };
+    }
+  }
 
   const { data: esAdmin, error: errorRol } = await supabase.rpc("is_admin");
   if (errorRol || esAdmin !== true) {
     await supabase.auth.signOut({ scope: "local" });
-    return "sin-acceso";
+    return { tipo: "sin-acceso" };
   }
-  return "admin";
+  return { tipo: "admin" };
 }
 
 /** Cierra la sesión solo en este dispositivo (scope "local"). */

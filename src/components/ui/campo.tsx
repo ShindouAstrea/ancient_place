@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils/cn";
  * - usa texto de 18px (evita además el zoom automático de iOS, que ocurre bajo 16px).
  */
 
-const claseControl =
+export const claseControl =
   "block w-full rounded-xl border-2 border-salvia-300 bg-white px-4 py-3 text-lg text-tinta " +
   "placeholder:text-tinta-suave/70 focus:border-salvia-700 focus-visible:outline-offset-1 " +
   "aria-invalid:border-terracota min-h-12";

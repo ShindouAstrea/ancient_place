@@ -34,9 +34,10 @@ values
    true, 'descartado', now() - interval '10 days');
 
 -- -----------------------------------------------------------------------------
--- Administrador de prueba: admin@example.com
--- Para entrar (etapa 5): pedir el enlace mágico con ese correo y abrirlo desde
--- Mailpit (http://127.0.0.1:54324), que captura los correos en local.
+-- Administrador de prueba (SOLO LOCAL):
+--   correo:     admin@example.com
+--   contraseña: admin-local-12345
+-- La contraseña se guarda con bcrypt, igual que lo hace Supabase Auth.
 -- -----------------------------------------------------------------------------
 do $$
 declare
@@ -48,7 +49,7 @@ begin
     confirmation_token, recovery_token, email_change_token_new, email_change
   ) values (
     '00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated',
-    'admin@example.com', '', now(),
+    'admin@example.com', extensions.crypt('admin-local-12345', extensions.gen_salt('bf')), now(),
     '{"provider": "email", "providers": ["email"]}', '{}', now(), now(),
     '', '', '', ''
   );

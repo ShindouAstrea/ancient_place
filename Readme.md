@@ -43,7 +43,7 @@ pnpm db:test      # verifica las políticas de seguridad (deben pasar todos los 
 | -------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | API (`NEXT_PUBLIC_SUPABASE_URL`) | http://127.0.0.1:54321 | La usa la app, no el navegador. Es normal que la raíz responda `no Route matched`: solo atiende rutas como `/rest/v1`. |
 | Studio (panel visual)            | http://127.0.0.1:54323 | Ver y editar datos (ej: Table Editor → `leads`).                                                                       |
-| Mailpit (correos capturados)     | http://127.0.0.1:54324 | Correos de Supabase Auth en local (enlace mágico). Los avisos del formulario van por Resend, no aparecen aquí.         |
+| Mailpit (correos capturados)     | http://127.0.0.1:54324 | Correos que Supabase Auth enviaría en local. Los avisos del formulario van por Resend, no aparecen aquí.               |
 
 - La _Publishable key_ local es fija y ya viene en `.env.example`.
 - `supabase/seed.sql` carga contactos ficticios y un administrador de prueba
@@ -171,32 +171,29 @@ y actualizar la variable. Si el secreto falta o no coincide, el formulario deja 
 
 ## Panel de administración
 
-| Ruta               | Contenido                                                          |
-| ------------------ | ------------------------------------------------------------------ |
-| `/admin/login`     | Solicitar un enlace de acceso por correo (sin contraseñas)         |
-| `/admin/confirmar` | Destino del enlace del correo: un botón confirma el ingreso        |
-| `/admin`           | Inicio: resumen de contactos y módulos (actuales y futuros)        |
-| `/admin/leads`     | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
+| Ruta           | Contenido                                                          |
+| -------------- | ------------------------------------------------------------------ |
+| `/admin/login` | Ingreso con correo y contraseña                                    |
+| `/admin`       | Inicio: resumen de contactos y módulos (actuales y futuros)        |
+| `/admin/leads` | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
 
 ### Entrar en local
 
-1. `corepack pnpm dev` y abrir http://localhost:3000/admin.
-2. Ingresar `admin@example.com` (administrador de prueba del seed).
-3. Abrir Mailpit (http://127.0.0.1:54324), abrir el correo y presionar **Entrar al panel**.
+`corepack pnpm dev`, abrir http://localhost:3000/admin e ingresar con el administrador de
+prueba del seed: **`admin@example.com`** / **`admin-local-12345`** (solo existe en local).
 
 ### Capas de seguridad del acceso
 
-| Capa                                                                  | Protege contra                                              |
-| --------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Enlace mágico de un solo uso, vence en 15 minutos                     | Contraseñas débiles o reutilizadas                          |
-| Registro público deshabilitado                                        | Que cualquiera cree una cuenta                              |
-| CAPTCHA (Turnstile) en la API de Auth                                 | Pedidos automatizados de enlaces (spam o sondeo de correos) |
-| Rate limit: 10 solicitudes por hora por IP                            | Que una persona agote el cupo de envíos de todo el sitio    |
-| Misma respuesta exista o no la cuenta                                 | Averiguar qué correos tienen acceso                         |
-| Confirmación con botón (no al abrir el enlace)                        | Filtros de correo que "gastan" el enlace al revisarlo       |
-| Rol en la tabla `admins`, verificado en cada página y acción, más RLS | Cuentas sin rol de administrador                            |
-| Cookie de sesión `httpOnly`                                           | Robo de la sesión mediante XSS                              |
-| `noindex` (metadata + cabecera `X-Robots-Tag`)                        | Que el panel aparezca en buscadores                         |
+| Capa                                                                  | Protege contra                      |
+| --------------------------------------------------------------------- | ----------------------------------- |
+| Registro público deshabilitado                                        | Que cualquiera cree una cuenta      |
+| Contraseñas de 12 caracteres o más                                    | Contraseñas fáciles de adivinar     |
+| Rate limit: 10 intentos por hora por IP                               | Probar contraseñas por fuerza bruta |
+| CAPTCHA (Turnstile) opcional, verificado por Supabase                 | Intentos automatizados              |
+| Mismo mensaje si el correo no existe o la contraseña es incorrecta    | Averiguar qué correos tienen cuenta |
+| Rol en la tabla `admins`, verificado en cada página y acción, más RLS | Cuentas sin rol de administrador    |
+| Cookie de sesión `httpOnly`                                           | Robo de la sesión mediante XSS      |
+| `noindex` (metadata + cabecera `X-Robots-Tag`)                        | Que el panel aparezca en buscadores |
 
 Para agregar un módulo (agenda, inventario, pacientes): crear su página en
 `src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a `requerirAdmin()` en ella y en sus
@@ -204,72 +201,42 @@ servicios, y cambiar `disponible: true` en [`src/config/admin.ts`](src/config/ad
 
 ### Crear un administrador (producción)
 
-1. Supabase Dashboard → **Authentication → Users → Add user → Create new user**: ingresar
-   el correo y marcar **Auto Confirm User**. Si pide contraseña, usar una aleatoria y larga
-   que no se guarda: el acceso es solo por enlace mágico.
+1. Supabase Dashboard → **Authentication → Users → Add user → Create new user**: correo,
+   contraseña (12 caracteres o más) y marcar **Auto Confirm User**.
 2. SQL Editor:
    ```sql
    insert into public.admins (user_id, email)
    select id, email from auth.users where email = 'persona@dominio.cl';
    ```
 
-Para quitar el acceso: `delete from public.admins where email = 'persona@dominio.cl';`
+Crear el usuario no basta: sin la fila en `admins`, el login responde "Esta cuenta no tiene
+acceso al panel". Para quitar el acceso: `delete from public.admins where email = 'persona@dominio.cl';`
 (y opcionalmente borrar el usuario en Authentication → Users).
+
+### Cambiar la contraseña de un administrador
+
+SQL Editor (Supabase guarda la contraseña cifrada con bcrypt):
+
+```sql
+update auth.users
+set encrypted_password = extensions.crypt('<NUEVA_CONTRASEÑA>', extensions.gen_salt('bf'))
+where email = 'persona@dominio.cl';
+```
 
 ### Configurar Supabase Auth en producción
 
 Los nombres de los menús del Dashboard pueden variar levemente entre versiones.
 
-1. **URL del sitio:** Authentication → URL Configuration → **Site URL** =
-   `https://dominio.cl` (sin `/` final). La plantilla del correo construye el enlace con ella.
-2. **Registro público:** Authentication → Sign In / Providers → desactivar **Allow new users
-   to sign up**. Mantener habilitado el proveedor **Email** (lo usa el enlace mágico).
-3. **Vencimiento del enlace:** en el proveedor Email, **Email OTP Expiration** = `900`
-   segundos (15 minutos).
-4. **CAPTCHA** (cuando se active Turnstile en el sitio): Authentication → Attack Protection →
+1. **Registro público:** Authentication → Sign In / Providers → desactivar **Allow new users
+   to sign up**. Mantener habilitado el proveedor **Email** (lo usa el ingreso con contraseña).
+2. **Largo mínimo de contraseña:** en el proveedor Email, **Minimum password length** = `12`.
+   Opcional (plan Pro): activar **Prevent use of leaked passwords**.
+3. **CAPTCHA** (cuando se active Turnstile en el sitio): Authentication → Attack Protection →
    activar **CAPTCHA protection**, proveedor **Cloudflare Turnstile**, con la **misma clave
    secreta** que `TURNSTILE_SECRET_KEY` (el par de `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), y quitar
    `NEXT_PUBLIC_TURNSTILE_ENABLED="false"` en Vercel (requiere un nuevo deploy). Ambos lados
    deben coincidir: activo en los dos o desactivado en los dos.
-5. **SMTP con Resend** (ver abajo) y **plantilla en español** (ver abajo).
-6. Opcional (plan Pro): Authentication → Sessions → limitar la duración de las sesiones.
-
-### Resend como SMTP de Supabase Auth
-
-El servicio de correo incluido en Supabase es solo para pruebas: envía muy pocos correos por
-hora y solo a miembros del equipo del proyecto. En producción los enlaces de acceso deben
-salir por Resend:
-
-1. En Resend, con el dominio ya verificado (etapa 6), crear una **API key** con permiso
-   _Sending access_ restringido al dominio (distinta de `RESEND_API_KEY`, para poder
-   revocarlas por separado).
-2. Supabase Dashboard → Authentication → Emails → **SMTP Settings** → activar _Custom SMTP_:
-
-   | Campo        | Valor                                          |
-   | ------------ | ---------------------------------------------- |
-   | Host         | `smtp.resend.com`                              |
-   | Port         | `465`                                          |
-   | Username     | `resend`                                       |
-   | Password     | la API key del paso 1                          |
-   | Sender email | `no-responder@dominio.cl` (dominio verificado) |
-   | Sender name  | nombre del hogar                               |
-
-   Alternativa: en Resend → Integrations → **Supabase**, que completa estos datos sola.
-
-3. Authentication → Rate Limits → ajustar **emails por hora** (por ejemplo, 30).
-
-### Plantilla del enlace mágico en español
-
-Authentication → Emails → Templates → **Magic Link**:
-
-- **Subject:** `Tu enlace de acceso al panel`
-- **Body:** pegar el contenido de
-  [`supabase/templates/enlace-magico.html`](supabase/templates/enlace-magico.html)
-  (en local la usa automáticamente `config.toml`).
-
-El enlace debe apuntar a `/admin/confirmar?token_hash={{ .TokenHash }}&type=email`, no al
-enlace por defecto de Supabase: así funciona aunque el correo se abra en otro navegador o
-dispositivo, y los filtros de seguridad del correo no lo gastan antes de tiempo.
+4. Opcional (plan Pro): Authentication → Sessions → limitar la duración de las sesiones.
 
 ## Imagen Docker de producción
 

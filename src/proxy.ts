@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { actualizarSesion } from "@/lib/supabase/middleware";
 
 /** Rutas bajo /admin accesibles sin sesión. */
-const RUTAS_PUBLICAS = ["/admin/login", "/admin/confirmar"];
+const RUTAS_PUBLICAS = ["/admin/login"];
 
 /**
  * Proxy de Next.js 16 (antes "middleware"). Solo corre en /admin (ver matcher):

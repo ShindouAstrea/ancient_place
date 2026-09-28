@@ -5,8 +5,7 @@ import { cache } from "react";
 
 import {
   cerrarSesion,
-  enviarEnlaceMagico,
-  iniciarSesionConEnlace,
+  iniciarSesionConContrasena,
   obtenerSesionActual,
   type Administrador,
 } from "@/server/repositories/auth";
@@ -32,21 +31,22 @@ export async function requerirAdmin(): Promise<Administrador> {
   return sesion.admin;
 }
 
-export type ResultadoSolicitudAcceso =
-  { ok: true } | { ok: false; motivo: "verificacion" | "limite" | "interno" };
+export type MotivoFalloInicioSesion =
+  "credenciales" | "sin-acceso" | "no-confirmada" | "verificacion" | "limite" | "interno";
 
 /**
- * Solicita un enlace de acceso para `email`.
+ * Inicio de sesión con correo y contraseña.
  *
- * Para no revelar qué correos tienen acceso al panel, la respuesta es la misma
- * exista o no el usuario. Solo se informan los errores que no dependen del correo:
- * la verificación antispam y el límite de intentos por conexión.
+ * Capas: límite de intentos por IP (10 por hora, frena ataques de fuerza bruta),
+ * CAPTCHA opcional verificado por Supabase, y mensaje genérico ante credenciales
+ * inválidas (no revela si el correo existe).
  */
-export async function solicitarEnlaceAcceso(
+export async function iniciarSesion(
   email: string,
+  contrasena: string,
   tokenCaptcha: string,
   ip: string | null,
-): Promise<ResultadoSolicitudAcceso> {
+): Promise<{ ok: true } | { ok: false; motivo: MotivoFalloInicioSesion }> {
   try {
     if (!(await permitirIntento(ip, "login"))) return { ok: false, motivo: "limite" };
   } catch (error) {
@@ -54,18 +54,25 @@ export async function solicitarEnlaceAcceso(
     return { ok: false, motivo: "interno" };
   }
 
-  const error = await enviarEnlaceMagico(email, tokenCaptcha);
-  if (!error) return { ok: true };
-  if (error.codigo === "captcha_failed") return { ok: false, motivo: "verificacion" };
-
-  // Correo sin cuenta, límite de envíos de Supabase, etc.: se registra solo el código.
-  console.warn("[acceso] No se envió el enlace de acceso:", error.codigo);
-  return { ok: true };
-}
-
-/** Canjea el enlace del correo. Solo un administrador queda con sesión iniciada. */
-export function confirmarEnlaceAcceso(tokenHash: string) {
-  return iniciarSesionConEnlace(tokenHash);
+  const resultado = await iniciarSesionConContrasena(email, contrasena, tokenCaptcha);
+  switch (resultado.tipo) {
+    case "admin":
+      return { ok: true };
+    case "credenciales-invalidas":
+      return { ok: false, motivo: "credenciales" };
+    case "sin-acceso":
+      return { ok: false, motivo: "sin-acceso" };
+    case "no-confirmada":
+      return { ok: false, motivo: "no-confirmada" };
+    case "captcha":
+      return { ok: false, motivo: "verificacion" };
+    case "limite":
+      return { ok: false, motivo: "limite" };
+    case "error":
+      // Solo el código de Supabase: nunca el correo ni la contraseña.
+      console.error("[acceso] Error de Supabase Auth al iniciar sesión:", resultado.codigo);
+      return { ok: false, motivo: "interno" };
+  }
 }
 
 export function cerrarSesionActual() {

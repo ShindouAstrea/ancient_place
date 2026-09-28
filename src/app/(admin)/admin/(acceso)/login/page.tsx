@@ -12,10 +12,6 @@ import { MOTIVOS_LOGIN, type MotivoLogin } from "@/server/validators/auth";
 export const metadata: Metadata = { title: "Ingresar" };
 
 const AVISOS: Record<MotivoLogin, { tono: "info" | "error"; texto: string }> = {
-  "enlace-invalido": {
-    tono: "error",
-    texto: "El enlace no es válido, ya se usó o venció. Solicita uno nuevo.",
-  },
   "sin-acceso": { tono: "error", texto: "Esta cuenta no tiene acceso al panel de administración." },
   "sesion-cerrada": { tono: "info", texto: "Cerraste sesión correctamente." },
   "sesion-requerida": { tono: "info", texto: "Tu sesión terminó. Ingresa nuevamente." },
@@ -66,9 +62,7 @@ export default async function LoginPage({ searchParams }: Props) {
         </div>
       ) : (
         <>
-          <p className="mt-2 text-tinta-suave">
-            Te enviaremos un enlace a tu correo para entrar. No necesitas contraseña.
-          </p>
+          <p className="mt-2 text-tinta-suave">Ingresa con tu correo y contraseña.</p>
           <div className="mt-6">
             <FormularioAcceso />
           </div>

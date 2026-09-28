@@ -101,10 +101,12 @@ export function leerFormularioContacto(formData: FormData) {
 }
 
 /** Primer mensaje de error de cada campo, listo para mostrar. */
-export function erroresPorCampo(error: z.ZodError): ErroresContacto {
+export function erroresPorCampo<Campo extends string = CampoContacto>(
+  error: z.ZodError,
+): Partial<Record<Campo, string>> {
   const { fieldErrors } = z.flattenError(error);
-  const errores: ErroresContacto = {};
-  for (const [campo, mensajes] of Object.entries(fieldErrors) as [CampoContacto, string[]][]) {
+  const errores: Partial<Record<Campo, string>> = {};
+  for (const [campo, mensajes] of Object.entries(fieldErrors) as [Campo, string[]][]) {
     if (mensajes[0]) errores[campo] = mensajes[0];
   }
   return errores;

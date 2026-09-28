@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, LoaderCircle, LogIn, MailCheck } from "lucide-react";
+import { CircleAlert, Eye, EyeOff, LoaderCircle, LogIn } from "lucide-react";
 import {
   startTransition,
   useActionState,
@@ -11,24 +11,28 @@ import {
 } from "react";
 
 import { Boton } from "@/components/ui/boton";
-import { CampoTexto } from "@/components/ui/campo";
+import { CampoTexto, claseControl } from "@/components/ui/campo";
 import { Turnstile } from "@/components/ui/turnstile";
 import { captcha } from "@/lib/env";
-import { solicitarAcceso } from "@/server/actions/auth";
-import { esquemaSolicitudAcceso, type EstadoSolicitudAcceso } from "@/server/validators/auth";
+import { cn } from "@/lib/utils/cn";
+import { iniciarSesionAccion } from "@/server/actions/auth";
+import {
+  esquemaInicioSesion,
+  type CampoInicioSesion,
+  type EstadoInicioSesion,
+} from "@/server/validators/auth";
+import { erroresPorCampo } from "@/server/validators/contacto";
 
-const ESTADO_INICIAL: EstadoSolicitudAcceso = { estado: "inicial" };
+const ESTADO_INICIAL: EstadoInicioSesion = { estado: "inicial" };
 
-/** "Solicitar otro enlace" vuelve a montar el formulario con un estado limpio. */
+/** Formulario de ingreso al panel: correo y contraseña. Si todo está bien, el servidor redirige. */
 export function FormularioAcceso() {
-  const [instancia, setInstancia] = useState(0);
-  return <FormularioInterno key={instancia} onReiniciar={() => setInstancia((n) => n + 1)} />;
-}
-
-function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
-  const [estado, accion, enviando] = useActionState(solicitarAcceso, ESTADO_INICIAL);
-  const [errorCliente, setErrorCliente] = useState<string | null>(null);
+  const [estado, accion, enviando] = useActionState(iniciarSesionAccion, ESTADO_INICIAL);
+  const [erroresCliente, setErroresCliente] = useState<Partial<
+    Record<CampoInicioSesion, string>
+  > | null>(null);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
+  const [verContrasena, setVerContrasena] = useState(false);
   // Sin CAPTCHA no hay verificación que esperar: el formulario queda listo de inmediato.
   const [turnstile, setTurnstile] = useState<"pendiente" | "listo" | "error">(
     captcha.activo ? "pendiente" : "listo",
@@ -36,18 +40,24 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
   const [reinicioTurnstile, setReinicioTurnstile] = useState(0);
 
   const refAlerta = useRef<HTMLDivElement>(null);
-  const refEnviado = useRef<HTMLDivElement>(null);
+  const refContrasena = useRef<HTMLInputElement>(null);
 
-  const errorEmail = errorCliente ?? (estado.estado === "error" ? estado.errorEmail : undefined);
+  const errores = erroresCliente ?? (estado.estado === "error" ? (estado.errores ?? {}) : {});
   const mensajeGeneral =
-    avisoCliente ?? (estado.estado === "error" && !estado.errorEmail ? estado.mensaje : null);
+    avisoCliente ?? (estado.estado === "error" && !estado.errores ? estado.mensaje : null);
 
-  // Tras la respuesta del servidor, mover el foco para anunciar el resultado.
+  // Tras la respuesta del servidor: vaciar la contraseña si era incorrecta y mover el foco.
   useEffect(() => {
-    if (estado.estado === "enviado") refEnviado.current?.focus();
-    if (estado.estado === "error") {
-      if (estado.errorEmail) document.getElementById("email")?.focus();
-      else refAlerta.current?.focus();
+    if (estado.estado !== "error") return;
+    if (estado.limpiarContrasena && refContrasena.current) {
+      refContrasena.current.value = "";
+      refContrasena.current.focus();
+    } else if (estado.errores?.email) {
+      document.getElementById("email")?.focus();
+    } else if (estado.errores?.password) {
+      refContrasena.current?.focus();
+    } else {
+      refAlerta.current?.focus();
     }
   }, [estado]);
 
@@ -56,16 +66,21 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
     if (enviando) return;
 
     const formData = new FormData(evento.currentTarget);
-    const validacion = esquemaSolicitudAcceso.safeParse({ email: formData.get("email") ?? "" });
+    const validacion = esquemaInicioSesion.safeParse({
+      email: formData.get("email") ?? "",
+      password: formData.get("password") ?? "",
+    });
     if (!validacion.success) {
-      setErrorCliente(validacion.error.issues[0]?.message ?? "Ingresa un correo válido.");
+      const nuevos = erroresPorCampo<CampoInicioSesion>(validacion.error);
+      setErroresCliente(nuevos);
       setAvisoCliente(null);
-      document.getElementById("email")?.focus();
+      if (nuevos.email) document.getElementById("email")?.focus();
+      else refContrasena.current?.focus();
       return;
     }
 
     if (turnstile !== "listo") {
-      setErrorCliente(null);
+      setErroresCliente({});
       setAvisoCliente(
         turnstile === "error"
           ? "No pudimos cargar la verificación de seguridad. Recarga la página e inténtalo de nuevo."
@@ -75,40 +90,14 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
       return;
     }
 
-    setErrorCliente(null);
+    setErroresCliente(null);
     setAvisoCliente(null);
     startTransition(() => accion(formData));
     // El token de Turnstile es de un solo uso: se pide uno nuevo para un reintento.
     setReinicioTurnstile((n) => n + 1);
   }
 
-  if (estado.estado === "enviado") {
-    return (
-      <div
-        ref={refEnviado}
-        tabIndex={-1}
-        role="region"
-        aria-labelledby="acceso-enviado-titulo"
-        className="flex flex-col items-start gap-4 outline-none"
-      >
-        <MailCheck className="size-12 text-salvia-700" aria-hidden="true" />
-        <h2 id="acceso-enviado-titulo" className="text-2xl font-semibold">
-          Revisa tu correo
-        </h2>
-        {/* Mensaje idéntico exista o no la cuenta: no revela qué correos tienen acceso. */}
-        <p>
-          Si el correo tiene acceso al panel, te enviamos un enlace para entrar. El enlace vence en
-          15 minutos y sirve una sola vez.
-        </p>
-        <p className="text-base text-tinta-suave">
-          ¿No llegó? Revisa la carpeta de spam o solicita otro enlace en unos minutos.
-        </p>
-        <Boton variante="secundario" onClick={onReiniciar}>
-          Solicitar otro enlace
-        </Boton>
-      </div>
-    );
-  }
+  const describedByContrasena = errores.password ? "password-error" : undefined;
 
   return (
     <form onSubmit={alEnviar} noValidate aria-busy={enviando} className="flex flex-col gap-5">
@@ -117,11 +106,53 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
         etiqueta="Correo electrónico"
         type="email"
         inputMode="email"
-        autoComplete="email"
+        autoComplete="username"
         maxLength={254}
-        error={errorEmail}
-        onChange={() => errorCliente && setErrorCliente(null)}
+        error={errores.email}
+        onChange={() => erroresCliente?.email && setErroresCliente(null)}
       />
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="password" className="font-semibold">
+          Contraseña
+        </label>
+        <div className="relative">
+          <input
+            ref={refContrasena}
+            id="password"
+            name="password"
+            type={verContrasena ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            maxLength={72}
+            aria-invalid={errores.password ? true : undefined}
+            aria-describedby={describedByContrasena}
+            onChange={() => erroresCliente?.password && setErroresCliente(null)}
+            className={cn(claseControl, "pr-14")}
+          />
+          <button
+            type="button"
+            onClick={() => setVerContrasena((v) => !v)}
+            aria-pressed={verContrasena}
+            aria-controls="password"
+            className="absolute inset-y-0.5 right-0.5 flex w-12 items-center justify-center rounded-r-[10px] text-salvia-800 hover:bg-salvia-50"
+          >
+            {verContrasena ? (
+              <EyeOff className="size-6" aria-hidden="true" />
+            ) : (
+              <Eye className="size-6" aria-hidden="true" />
+            )}
+            <span className="sr-only">
+              {verContrasena ? "Ocultar contraseña" : "Mostrar contraseña"}
+            </span>
+          </button>
+        </div>
+        {errores.password ? (
+          <p id="password-error" className="text-base font-semibold text-terracota">
+            {errores.password}
+          </p>
+        ) : null}
+      </div>
 
       {captcha.activo ? (
         <Turnstile
@@ -145,12 +176,12 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
         {enviando ? (
           <>
             <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
-            Enviando…
+            Ingresando…
           </>
         ) : (
           <>
             <LogIn className="size-5" aria-hidden="true" />
-            Enviarme el enlace
+            Ingresar
           </>
         )}
       </Boton>
