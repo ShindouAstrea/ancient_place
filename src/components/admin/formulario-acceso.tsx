@@ -13,7 +13,7 @@ import {
 import { Boton } from "@/components/ui/boton";
 import { CampoTexto } from "@/components/ui/campo";
 import { Turnstile } from "@/components/ui/turnstile";
-import { envPublico } from "@/lib/env";
+import { captcha } from "@/lib/env";
 import { solicitarAcceso } from "@/server/actions/auth";
 import { esquemaSolicitudAcceso, type EstadoSolicitudAcceso } from "@/server/validators/auth";
 
@@ -29,7 +29,10 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
   const [estado, accion, enviando] = useActionState(solicitarAcceso, ESTADO_INICIAL);
   const [errorCliente, setErrorCliente] = useState<string | null>(null);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
-  const [turnstile, setTurnstile] = useState<"pendiente" | "listo" | "error">("pendiente");
+  // Sin CAPTCHA no hay verificación que esperar: el formulario queda listo de inmediato.
+  const [turnstile, setTurnstile] = useState<"pendiente" | "listo" | "error">(
+    captcha.activo ? "pendiente" : "listo",
+  );
   const [reinicioTurnstile, setReinicioTurnstile] = useState(0);
 
   const refAlerta = useRef<HTMLDivElement>(null);
@@ -120,12 +123,14 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
         onChange={() => errorCliente && setErrorCliente(null)}
       />
 
-      <Turnstile
-        siteKey={envPublico.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-        accion="login"
-        reinicio={reinicioTurnstile}
-        onEstado={setTurnstile}
-      />
+      {captcha.activo ? (
+        <Turnstile
+          siteKey={captcha.siteKey}
+          accion="login"
+          reinicio={reinicioTurnstile}
+          onEstado={setTurnstile}
+        />
+      ) : null}
 
       <div ref={refAlerta} tabIndex={-1} role="alert" className="outline-none">
         {mensajeGeneral ? (

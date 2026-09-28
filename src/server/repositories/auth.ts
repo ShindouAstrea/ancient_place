@@ -34,7 +34,9 @@ export async function obtenerSesionActual(): Promise<SesionActual> {
 /**
  * Pide a Supabase Auth que envíe un enlace mágico.
  * - shouldCreateUser: false → nunca crea usuarios (además el registro está deshabilitado).
- * - captchaToken → Supabase verifica el token de Turnstile antes de hacer nada.
+ * - captchaToken → si el CAPTCHA está activo en Supabase, lo verifica antes de hacer nada.
+ *   Sin token (CAPTCHA desactivado en el sitio) no se envía: Supabase también debe
+ *   tenerlo desactivado, o rechazará la solicitud.
  * Devuelve el código de error de Supabase (sin datos personales) o null si se aceptó.
  */
 export async function enviarEnlaceMagico(email: string, tokenCaptcha: string) {
@@ -42,7 +44,7 @@ export async function enviarEnlaceMagico(email: string, tokenCaptcha: string) {
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false, captchaToken: tokenCaptcha },
+    options: { shouldCreateUser: false, captchaToken: tokenCaptcha || undefined },
   });
 
   return error ? { codigo: error.code ?? `http_${error.status ?? "desconocido"}` } : null;

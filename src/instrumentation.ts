@@ -6,10 +6,17 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { envServidor } = await import("@/lib/env");
+  const { captcha, envServidor } = await import("@/lib/env");
   envServidor();
 
   if (process.env.NODE_ENV === "production") {
+    if (!captcha.activo) {
+      console.warn(
+        '[seguridad] CAPTCHA desactivado (NEXT_PUBLIC_TURNSTILE_ENABLED="false"). ' +
+          "Configúralo antes de publicar el sitio definitivamente (ver README).",
+      );
+    }
+
     const { camposPendientes } = await import("@/config/site");
     const pendientes = camposPendientes();
     if (pendientes.length > 0) {

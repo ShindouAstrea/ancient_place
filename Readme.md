@@ -102,13 +102,23 @@ y usar `http://supabase_kong_<project_id>:8000` como `SUPABASE_INTERNAL_URL`.
 Todas están documentadas en [`.env.example`](.env.example) y se validan con Zod en
 [`src/lib/env.ts`](src/lib/env.ts).
 
-| Tipo                   | Variables                                                                                                                      | Cuándo se definen                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| **Build** (públicas)   | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`   | Al ejecutar `next build`. En Docker, como `--build-arg`. Cambiarlas exige reconstruir. |
-| **Runtime** (secretas) | `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `RATE_LIMIT_SALT`, `SUPABASE_FORMULARIO_SECRETO`, `SUPABASE_INTERNAL_URL` (opcional) | Al iniciar el servidor. En Docker, con `--env-file` o `-e`.                            |
+| Tipo                   | Variables                                                                                                                                                     | Cuándo se definen                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Build** (públicas)   | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_ENABLED`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Al ejecutar `next build`. En Docker, como `--build-arg`. Cambiarlas exige reconstruir. |
+| **Runtime** (secretas) | `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `RATE_LIMIT_SALT`, `SUPABASE_FORMULARIO_SECRETO`, `SUPABASE_INTERNAL_URL` (opcional)                                | Al iniciar el servidor. En Docker, con `--env-file` o `-e`.                            |
 
 Las variables de runtime se validan al arrancar (`src/instrumentation.ts`): si falta alguna,
 el servidor no inicia. `SUPABASE_SERVICE_ROLE_KEY` **no se usa** en este proyecto.
+
+- `NEXT_PUBLIC_SITE_URL` admite el dominio sin protocolo (`dominio.cl` → `https://dominio.cl`).
+  En Vercel puede omitirse: se usa el dominio de producción del proyecto.
+- **CAPTCHA opcional:** `NEXT_PUBLIC_TURNSTILE_ENABLED="false"` desactiva Turnstile en el
+  formulario de contacto y en el login del panel; entonces `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y
+  `TURNSTILE_SECRET_KEY` pueden omitirse. Por defecto está **activo**. Siguen protegiendo el
+  honeypot, el rate limit y el secreto del formulario, pero conviene activarlo antes de
+  publicar definitivamente (el servidor lo recuerda en los logs al arrancar). Si se desactiva
+  aquí, también debe estar desactivado en Supabase (Authentication → CAPTCHA), o el login
+  del panel será rechazado.
 
 ## Formulario de contacto: capas de seguridad
 
@@ -206,9 +216,11 @@ Los nombres de los menús del Dashboard pueden variar levemente entre versiones.
    to sign up**. Mantener habilitado el proveedor **Email** (lo usa el enlace mágico).
 3. **Vencimiento del enlace:** en el proveedor Email, **Email OTP Expiration** = `900`
    segundos (15 minutos).
-4. **CAPTCHA:** Authentication → Attack Protection → activar **CAPTCHA protection**, proveedor
-   **Cloudflare Turnstile**, con la **misma clave secreta** que `TURNSTILE_SECRET_KEY` (el par
-   de `NEXT_PUBLIC_TURNSTILE_SITE_KEY`).
+4. **CAPTCHA** (cuando se active Turnstile en el sitio): Authentication → Attack Protection →
+   activar **CAPTCHA protection**, proveedor **Cloudflare Turnstile**, con la **misma clave
+   secreta** que `TURNSTILE_SECRET_KEY` (el par de `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), y quitar
+   `NEXT_PUBLIC_TURNSTILE_ENABLED="false"` en Vercel (requiere un nuevo deploy). Ambos lados
+   deben coincidir: activo en los dos o desactivado en los dos.
 5. **SMTP con Resend** (ver abajo) y **plantilla en español** (ver abajo).
 6. Opcional (plan Pro): Authentication → Sessions → limitar la duración de las sesiones.
 

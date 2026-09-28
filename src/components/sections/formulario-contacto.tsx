@@ -16,7 +16,7 @@ import { Boton, BotonEnlace } from "@/components/ui/boton";
 import { CampoAreaTexto, CampoCasilla, CampoSeleccion, CampoTexto } from "@/components/ui/campo";
 import { IconoWhatsapp } from "@/components/ui/icono-whatsapp";
 import { Turnstile } from "@/components/ui/turnstile";
-import { envPublico } from "@/lib/env";
+import { captcha } from "@/lib/env";
 import { enlaceWhatsapp } from "@/lib/utils/contacto";
 import { enviarContacto } from "@/server/actions/contacto";
 import {
@@ -76,7 +76,10 @@ function FormularioInterno({
   // Errores detectados en el navegador antes de enviar (respuesta inmediata).
   const [erroresCliente, setErroresCliente] = useState<ErroresContacto | null>(null);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
-  const [turnstile, setTurnstile] = useState<"pendiente" | "listo" | "error">("pendiente");
+  // Sin CAPTCHA no hay verificación que esperar: el formulario queda listo de inmediato.
+  const [turnstile, setTurnstile] = useState<"pendiente" | "listo" | "error">(
+    captcha.activo ? "pendiente" : "listo",
+  );
   const [reinicioTurnstile, setReinicioTurnstile] = useState(0);
 
   const refAlerta = useRef<HTMLDivElement>(null);
@@ -257,14 +260,14 @@ function FormularioInterno({
         />
       </div>
 
-      <div className="flex flex-col gap-1">
+      {captcha.activo ? (
         <Turnstile
-          siteKey={envPublico.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+          siteKey={captcha.siteKey}
           accion="contacto"
           reinicio={reinicioTurnstile}
           onEstado={setTurnstile}
         />
-      </div>
+      ) : null}
 
       {/* Región de avisos: role="alert" anuncia el error a lectores de pantalla. */}
       <div ref={refAlerta} tabIndex={-1} className="outline-none" role="alert">

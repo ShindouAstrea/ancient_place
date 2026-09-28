@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { envServidor } from "@/lib/env";
+import { captcha, envServidor } from "@/lib/env";
 
 const URL_VERIFICACION = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -19,17 +19,23 @@ const esquemaRespuesta = z.object({
  *
  * Falla de forma cerrada: ante cualquier error (red, tiempo de espera, respuesta
  * inesperada) se considera NO verificado.
+ *
+ * Con el CAPTCHA desactivado (NEXT_PUBLIC_TURNSTILE_ENABLED="false") no hay nada que
+ * verificar y se acepta la solicitud; siguen activos el honeypot y el rate limit.
  */
 export async function verificarTurnstile(
   token: string,
   ip: string | null,
   accionEsperada: string,
 ): Promise<boolean> {
+  if (!captcha.activo) return true;
+
   // Los tokens válidos tienen como máximo 2048 caracteres.
   if (!token || token.length > 2048) return false;
 
   const cuerpo = new URLSearchParams({
-    secret: envServidor().TURNSTILE_SECRET_KEY,
+    // Con el CAPTCHA activo, la validación de env.ts garantiza que existe.
+    secret: envServidor().TURNSTILE_SECRET_KEY ?? "",
     response: token,
     // Permite reintentar la verificación sin que el token cuente como reutilizado.
     idempotency_key: randomUUID(),
