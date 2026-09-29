@@ -1,9 +1,9 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 
 import { captcha, envServidor } from "@/lib/env";
+import { z } from "@/lib/zod";
 
 const URL_VERIFICACION = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 

@@ -1,15 +1,31 @@
 import { TriangleAlert } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 import { direccionCompleta } from "@/components/sections/ubicacion";
 import { Contenedor } from "@/components/ui/seccion";
+import { openGraphBase } from "@/lib/seo";
 import { obtenerContenidoSitio } from "@/server/services/contenido";
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata(
+  _props: unknown,
+  padre: ResolvingMetadata,
+): Promise<Metadata> {
   const { config } = await obtenerContenidoSitio();
+  const titulo = "Política de privacidad";
+  const descripcion = `Cómo ${config.nombre} trata los datos personales de quienes nos contactan.`;
   return {
-    title: "Política de privacidad",
-    description: `Cómo ${config.nombre} trata los datos personales de quienes nos contactan.`,
+    title: titulo,
+    description: descripcion,
+    alternates: { canonical: "/privacidad" },
+    // Open Graph reemplaza (no combina) el del layout: se repiten los datos comunes y la
+    // imagen para compartir (opengraph-image.tsx).
+    openGraph: {
+      ...openGraphBase(config),
+      title: `${titulo} | ${config.nombre}`,
+      description: descripcion,
+      url: "/privacidad",
+      images: (await padre).openGraph?.images ?? [],
+    },
   };
 }
 

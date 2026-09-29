@@ -4,11 +4,41 @@ import { siteConfig } from "@/config/site";
 import { BotonEnlace } from "@/components/ui/boton";
 import { Seccion } from "@/components/ui/seccion";
 import { Tarjeta } from "@/components/ui/tarjeta";
+import { describirDias } from "@/lib/utils/horario";
 import type { ConfiguracionSitio } from "@/types/contenido";
+
+/** Hay horario si hay tramos (días y horas) o una aclaración en texto libre. */
+export function tieneHorario(config: ConfiguracionSitio) {
+  return config.horario_tramos.length > 0 || Boolean(config.horario_visitas);
+}
 
 /** La sección se muestra si hay dirección, horario o mapa. */
 export function tieneUbicacion(config: ConfiguracionSitio) {
-  return Boolean(config.direccion || config.horario_visitas || config.maps_embed_url);
+  return Boolean(config.direccion || tieneHorario(config) || config.maps_embed_url);
+}
+
+/** Tramos ("Lunes a viernes, de 10:00 a 18:00"), uno por línea, y luego la aclaración. */
+export function HorarioVisitas({ config }: { config: ConfiguracionSitio }) {
+  return (
+    <>
+      {config.horario_tramos.length > 0 ? (
+        <ul>
+          {/* El rango de horas nunca se parte entre dos líneas. */}
+          {config.horario_tramos.map((tramo, i) => (
+            <li key={i}>
+              {describirDias(tramo.dias)},{" "}
+              <span className="whitespace-nowrap">
+                de {tramo.desde} a {tramo.hasta}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {config.horario_visitas ? (
+        <p className="whitespace-pre-line">{config.horario_visitas}</p>
+      ) : null}
+    </>
+  );
 }
 
 /** Dirección en una línea: "Av. Ejemplo 123, Santiago, Región Metropolitana". */
@@ -36,12 +66,12 @@ export function Ubicacion({ config }: { config: ConfiguracionSitio }) {
               </div>
             </div>
           ) : null}
-          {config.horario_visitas ? (
+          {tieneHorario(config) ? (
             <div className="flex gap-3">
               <Clock className="mt-1 size-6 shrink-0 text-salvia-700" aria-hidden="true" />
-              <div>
-                <h3 className="text-lg font-semibold">Horario de visitas</h3>
-                <p className="whitespace-pre-line text-tinta-suave">{config.horario_visitas}</p>
+              <div className="space-y-1 text-tinta-suave">
+                <h3 className="text-lg font-semibold text-tinta">Horario de visitas</h3>
+                <HorarioVisitas config={config} />
               </div>
             </div>
           ) : null}

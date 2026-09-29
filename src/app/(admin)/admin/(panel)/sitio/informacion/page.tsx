@@ -11,7 +11,10 @@ import type { ConfiguracionSitio } from "@/types/contenido";
 
 export const metadata: Metadata = { title: "Información del hogar" };
 
-/** Valores actuales de los campos del formulario (los destacados se separan en 4 pares). */
+/**
+ * Valores actuales de los campos del formulario: los destacados se separan en 4 pares y
+ * el horario por tramos viaja como JSON (lo lee el campo "horario").
+ */
 function valoresFormulario(config: ConfiguracionSitio): Record<string, string> {
   const valores: Record<string, string> = {};
   for (const [clave, valor] of Object.entries(config)) {
@@ -21,6 +24,7 @@ function valoresFormulario(config: ConfiguracionSitio): Record<string, string> {
     valores[`destacado_valor_${i + 1}`] = d.valor;
     valores[`destacado_etiqueta_${i + 1}`] = d.etiqueta;
   });
+  valores.horario_tramos = JSON.stringify(config.horario_tramos);
   return valores;
 }
 

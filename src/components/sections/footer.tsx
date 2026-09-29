@@ -6,7 +6,7 @@ import { Contenedor } from "@/components/ui/seccion";
 import { enlaceTelefono, enlaceWhatsapp, formatearTelefono } from "@/lib/utils/contacto";
 import type { ConfiguracionSitio } from "@/types/contenido";
 
-import { direccionCompleta } from "./ubicacion";
+import { HorarioVisitas, direccionCompleta, tieneHorario } from "./ubicacion";
 
 const claseEnlace = "inline-flex min-h-11 items-center gap-3 hover:text-white hover:underline";
 
@@ -66,7 +66,7 @@ export function Footer({ config }: { config: ConfiguracionSitio }) {
           </div>
         ) : null}
 
-        {direccion || config.horario_visitas ? (
+        {direccion || tieneHorario(config) ? (
           <div>
             <h2 className="font-sans text-lg font-bold text-white">Visítanos</h2>
             <ul className="mt-3 space-y-3 text-base">
@@ -76,10 +76,13 @@ export function Footer({ config }: { config: ConfiguracionSitio }) {
                   <address className="not-italic">{direccion}</address>
                 </li>
               ) : null}
-              {config.horario_visitas ? (
+              {tieneHorario(config) ? (
                 <li className="flex gap-3">
                   <Clock className="mt-1 size-5 shrink-0" aria-hidden="true" />
-                  <span className="whitespace-pre-line">{config.horario_visitas}</span>
+                  <div>
+                    <span className="sr-only">Horario de visitas: </span>
+                    <HorarioVisitas config={config} />
+                  </div>
                 </li>
               ) : null}
             </ul>

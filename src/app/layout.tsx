@@ -3,6 +3,7 @@ import { Lora, Nunito_Sans } from "next/font/google";
 
 import { siteConfig } from "@/config/site";
 import { envPublico } from "@/lib/env";
+import { descripcionSitio, openGraphBase, tituloSitio } from "@/lib/seo";
 import { obtenerContenidoSitio } from "@/server/services/contenido";
 
 import "./globals.css";
@@ -22,13 +23,23 @@ const fuenteTitulos = Lora({
   variable: "--font-lora",
 });
 
-/** Título y descripción vienen del contenido editable desde el panel. */
+/**
+ * Metadata base (buscadores y vista previa al compartir en WhatsApp o redes). Los
+ * textos vienen del contenido editable desde el panel. La imagen para compartir es
+ * app/(publico)/opengraph-image.tsx y el ícono, app/icon.svg y app/apple-icon.tsx.
+ */
 export async function generateMetadata(): Promise<Metadata> {
   const { config } = await obtenerContenidoSitio();
+  const titulo = tituloSitio(config);
+  const descripcion = descripcionSitio(config);
   return {
+    // Base de las URL absolutas (canonical, Open Graph): el dominio definitivo.
     metadataBase: new URL(envPublico.NEXT_PUBLIC_SITE_URL),
-    title: { default: config.nombre, template: `%s | ${config.nombre}` },
-    description: config.descripcion_corta || undefined,
+    title: { default: titulo, template: `%s | ${config.nombre}` },
+    description: descripcion,
+    applicationName: config.nombre,
+    openGraph: { ...openGraphBase(config), title: titulo, description: descripcion, url: "/" },
+    twitter: { card: "summary_large_image", title: titulo, description: descripcion },
   };
 }
 

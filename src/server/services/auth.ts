@@ -8,6 +8,8 @@ import {
   cerrarSesion,
   iniciarSesionConContrasena,
   obtenerSesionActual,
+  restablecerConEnlace,
+  solicitarCorreoRecuperacion,
   type Administrador,
   type RolAdmin,
 } from "@/server/repositories/auth";
@@ -134,6 +136,87 @@ export async function cambiarContrasenaAdmin(
       return { ok: false, motivo: "verificacion" };
     case "error":
       console.error("[cuenta] Error de Supabase Auth al cambiar la contraseña:", resultado.codigo);
+      return { ok: false, motivo: "interno" };
+  }
+}
+
+export type MotivoFalloRecuperacion = "verificacion" | "limite" | "interno";
+
+/**
+ * "¿Olvidaste tu contraseña?": envía el enlace para elegir una nueva.
+ *
+ * Capas: límite propio por IP (5 por hora; protege el cupo de correos de Supabase y
+ * frena el sondeo de correos), CAPTCHA opcional verificado por Supabase, y la misma
+ * respuesta exista o no la cuenta.
+ */
+export async function solicitarRecuperacion(
+  email: string,
+  tokenCaptcha: string,
+  ip: string | null,
+): Promise<{ ok: true } | { ok: false; motivo: MotivoFalloRecuperacion }> {
+  try {
+    if (!(await permitirIntento(ip, "recuperacion"))) return { ok: false, motivo: "limite" };
+  } catch (error) {
+    console.error(
+      "[recuperacion] No se pudo verificar el límite de intentos:",
+      (error as Error).message,
+    );
+    return { ok: false, motivo: "interno" };
+  }
+
+  const resultado = await solicitarCorreoRecuperacion(email, tokenCaptcha);
+  switch (resultado.tipo) {
+    case "ok":
+      return { ok: true };
+    case "captcha":
+      return { ok: false, motivo: "verificacion" };
+    case "limite":
+      return { ok: false, motivo: "limite" };
+    case "error":
+      // Solo el código de Supabase: nunca el correo.
+      console.error("[recuperacion] Error de Supabase Auth al pedir el correo:", resultado.codigo);
+      return { ok: false, motivo: "interno" };
+  }
+}
+
+export type MotivoFalloRestablecimiento =
+  "enlace-invalido" | "misma-contrasena" | "debil" | "limite" | "interno";
+
+/**
+ * Nueva contraseña con el enlace del correo. Comparte el límite de intentos del login:
+ * también es una forma de entrar a la cuenta.
+ */
+export async function restablecerContrasena(
+  tokenHash: string,
+  nueva: string,
+  ip: string | null,
+): Promise<{ ok: true } | { ok: false; motivo: MotivoFalloRestablecimiento }> {
+  try {
+    if (!(await permitirIntento(ip, "login"))) return { ok: false, motivo: "limite" };
+  } catch (error) {
+    console.error(
+      "[recuperacion] No se pudo verificar el límite de intentos:",
+      (error as Error).message,
+    );
+    return { ok: false, motivo: "interno" };
+  }
+
+  const resultado = await restablecerConEnlace(tokenHash, nueva);
+  switch (resultado.tipo) {
+    case "ok":
+      if (!resultado.sesionesCerradas) {
+        console.warn(
+          "[recuperacion] Contraseña cambiada, pero no se pudieron cerrar las sesiones.",
+        );
+      }
+      return { ok: true };
+    case "enlace-invalido":
+    case "misma-contrasena":
+    case "debil":
+    case "limite":
+      return { ok: false, motivo: resultado.tipo };
+    case "error":
+      console.error("[recuperacion] Error de Supabase Auth al restablecer:", resultado.codigo);
       return { ok: false, motivo: "interno" };
   }
 }

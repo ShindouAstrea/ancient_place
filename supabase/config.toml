@@ -215,9 +215,9 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# CAPTCHA en la propia API de Auth: impide automatizar pedidos de enlaces de acceso
-# (envío masivo de correos o sondeo de qué correos son administradores), incluso si
-# alguien llama directo a la API con la clave pública.
+# CAPTCHA en la propia API de Auth: impide automatizar intentos de ingreso y pedidos de
+# recuperación de contraseña (envío masivo de correos o sondeo de qué correos son
+# administradores), incluso si alguien llama directo a la API con la clave pública.
 [auth.captcha]
 enabled = true
 provider = "turnstile"
@@ -228,8 +228,8 @@ secret = "1x0000000000000000000000000000000AA"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-# OJO: en la CLI esta opción habilita el PROVEEDOR de correo completo (necesario para
-# el enlace mágico). El registro público se bloquea con [auth] enable_signup = false.
+# OJO: en la CLI esta opción habilita el PROVEEDOR de correo completo (lo usan el ingreso
+# con contraseña y su recuperación). El registro público se bloquea con [auth] enable_signup = false.
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
@@ -260,11 +260,20 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./supabase/templates/password_changed_notification.html"
+# "¿Olvidaste tu contraseña?" en español. El enlace lleva a /admin/restablecer con el
+# token_hash. En producción se pega el mismo contenido en el Dashboard
+# (Authentication → Emails → Reset Password). Ver README.
+[auth.email.template.recovery]
+subject = "Restablece tu contraseña del panel"
+content_path = "./supabase/templates/recuperar-contrasena.html"
+
+# Aviso de seguridad al cambiar la contraseña (desde Mi cuenta o con la recuperación):
+# si no fue la persona, se entera de inmediato. En producción: Authentication → Emails →
+# Password changed. Ver README.
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Tu contraseña del panel cambió"
+content_path = "./supabase/templates/contrasena-cambiada.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

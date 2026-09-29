@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(53);
+select plan(56);
 
 -- El test usa su propio secreto: reemplaza temporalmente el del seed (se revierte).
 delete from vault.secrets where name = 'formulario_secreto';
@@ -135,6 +135,13 @@ select is(
   'rate limit de acceso al panel: permite 10 solicitudes y bloquea la 11.ª'
 );
 
+select is(
+  (select array_agg(public.verificar_rate_limit(current_setting('test.secreto'), repeat('f', 64), 'recuperacion') order by g)
+     from generate_series(1, 6) as g),
+  array[true, true, true, true, true, false],
+  'rate limit de recuperación de contraseña: permite 5 solicitudes y bloquea la 6.ª'
+);
+
 reset role;
 
 -- El lead creado por la función quedó con los valores que fija la base de datos.
@@ -232,6 +239,17 @@ select lives_ok(
 select lives_ok(
   $$ delete from public.testimonios where autor = 'Prueba' $$,
   'rol sitio: puede borrar testimonios'
+);
+select lives_ok(
+  $$ update public.configuracion_sitio
+     set horario_tramos = '[{"dias": [1, 2, 3, 4, 5], "desde": "10:00", "hasta": "18:00"}]' $$,
+  'rol sitio: puede guardar el horario por tramos'
+);
+select throws_ok(
+  $$ update public.configuracion_sitio
+     set horario_tramos = '[{"dias": [1, 9], "desde": "18:00", "hasta": "10:00"}]' $$,
+  '23514', null,
+  'horario por tramos: la base de datos rechaza días u horas inválidos'
 );
 select throws_ok(
   $$ update public.configuracion_sitio set id = false $$,

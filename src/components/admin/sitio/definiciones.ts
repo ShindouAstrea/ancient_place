@@ -4,7 +4,7 @@ import type { TipoLista } from "@/types/contenido";
 export type CampoEditable = {
   nombre: string;
   etiqueta: string;
-  tipo?: "texto" | "area" | "email" | "tel" | "url" | "icono";
+  tipo?: "texto" | "area" | "email" | "tel" | "url" | "icono" | "horario";
   ayuda?: string;
   maximo?: number;
   requerido?: boolean;
@@ -98,12 +98,20 @@ export const SECCIONES_INFORMACION: SeccionEditable[] = [
       { nombre: "ciudad", etiqueta: "Ciudad o comuna", maximo: 100, medio: true },
       { nombre: "region", etiqueta: "Región", maximo: 100, medio: true },
       {
+        nombre: "horario_tramos",
+        etiqueta: "Días y horas de visita",
+        tipo: "horario",
+        ayuda:
+          "Marca los días y las horas. Así se muestra en el sitio y Google lo entiende. Usa otro tramo si hay horarios distintos (ej: fines de semana).",
+      },
+      {
         nombre: "horario_visitas",
-        etiqueta: "Horario de visitas",
+        etiqueta: "Aclaraciones del horario",
         tipo: "area",
         filas: 2,
         maximo: 300,
-        placeholder: "Lunes a domingo de 10:00 a 18:00",
+        placeholder: "Festivos, con aviso previo.",
+        ayuda: "Se muestra bajo los días y horas.",
       },
       {
         nombre: "maps_embed_url",

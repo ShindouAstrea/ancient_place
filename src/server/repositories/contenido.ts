@@ -1,10 +1,15 @@
 import "server-only";
 
-import { z } from "zod";
-
 import { crearClienteServidor } from "@/lib/supabase/server";
 import { crearClienteSinSesion } from "@/lib/supabase/sin-sesion";
-import type { ConfiguracionSitio, ContenidoSitio, Destacado, TablaLista } from "@/types/contenido";
+import { z } from "@/lib/zod";
+import type {
+  ConfiguracionSitio,
+  ContenidoSitio,
+  Destacado,
+  TablaLista,
+  TramoHorario,
+} from "@/types/contenido";
 import type { Tables, TablesInsert, TablesUpdate } from "@/types/database";
 
 import { ErrorRepositorio } from "./errores";
@@ -14,9 +19,18 @@ export const BUCKET_FOTOS = "sitio";
 
 const esquemaDestacados = z.array(z.object({ valor: z.string(), etiqueta: z.string() })).catch([]);
 
+// La base de datos ya valida el formato (CHECK); aquí solo se tipa, con respaldo vacío.
+const esquemaTramos = z
+  .array(z.object({ dias: z.array(z.number()), desde: z.string(), hasta: z.string() }))
+  .catch([]);
+
 function aConfiguracion(fila: Tables<"configuracion_sitio">): ConfiguracionSitio {
-  const { id, updated_at, destacados, ...resto } = fila;
-  return { ...resto, destacados: esquemaDestacados.parse(destacados) as Destacado[] };
+  const { id, updated_at, destacados, horario_tramos, ...resto } = fila;
+  return {
+    ...resto,
+    destacados: esquemaDestacados.parse(destacados) as Destacado[],
+    horario_tramos: esquemaTramos.parse(horario_tramos) as TramoHorario[],
+  };
 }
 
 /**

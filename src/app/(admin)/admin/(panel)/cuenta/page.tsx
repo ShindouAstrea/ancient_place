@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { FormularioContrasena } from "@/components/admin/formulario-contrasena";
 import { Tarjeta } from "@/components/ui/tarjeta";
@@ -28,6 +29,16 @@ export default async function CuentaPage() {
             otros dispositivos.
           </p>
           <FormularioContrasena />
+          <p className="mt-6 border-t border-salvia-100 pt-4 text-base text-tinta-suave">
+            ¿No recuerdas tu contraseña actual?{" "}
+            <Link
+              href="/admin/recuperar"
+              className="font-semibold text-salvia-800 underline underline-offset-4"
+            >
+              Restablécela por correo
+            </Link>
+            .
+          </p>
         </Tarjeta>
       </section>
     </div>

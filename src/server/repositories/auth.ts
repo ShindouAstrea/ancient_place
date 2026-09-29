@@ -172,6 +172,95 @@ export async function cambiarContrasena(
   return { tipo: "ok" };
 }
 
+export type ResultadoSolicitudRecuperacion =
+  { tipo: "ok" } | { tipo: "captcha" } | { tipo: "limite" } | { tipo: "error"; codigo: string };
+
+/**
+ * Pide a Supabase Auth el correo para restablecer la contraseña (plantilla "Reset
+ * Password", que enlaza a /admin/restablecer con el token_hash).
+ *
+ * Usa un cliente sin cookies: no toca la sesión del navegador y el enlace funciona desde
+ * cualquier dispositivo (no depende de un verificador PKCE guardado en este navegador).
+ * Si el correo no tiene cuenta, Supabase responde lo mismo y no envía nada.
+ */
+export async function solicitarCorreoRecuperacion(
+  email: string,
+  tokenCaptcha: string,
+): Promise<ResultadoSolicitudRecuperacion> {
+  const supabase = crearClienteSinSesion();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    captchaToken: tokenCaptcha || undefined,
+  });
+  if (!error) return { tipo: "ok" };
+
+  switch (error.code) {
+    case "captcha_failed":
+      return { tipo: "captcha" };
+    // Cupo de correos del proyecto o espera mínima entre correos a una misma cuenta.
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return { tipo: "limite" };
+    default:
+      return { tipo: "error", codigo: codigoDe(error) };
+  }
+}
+
+export type ResultadoRestablecimiento =
+  | { tipo: "ok"; sesionesCerradas: boolean }
+  | { tipo: "enlace-invalido" }
+  | { tipo: "misma-contrasena" }
+  | { tipo: "debil" }
+  | { tipo: "limite" }
+  | { tipo: "error"; codigo: string };
+
+/**
+ * Restablece la contraseña con el enlace del correo, en un solo paso y sin dejar una
+ * sesión abierta:
+ * 1. Canjea el token_hash (sirve una sola vez) en un cliente aparte, sin cookies.
+ * 2. Guarda la nueva contraseña con esa sesión temporal.
+ * 3. Cierra TODAS las sesiones de la cuenta (scope "global"), incluida la temporal: si
+ *    alguien más tenía acceso, lo pierde. Luego la persona ingresa con la nueva contraseña.
+ */
+export async function restablecerConEnlace(
+  tokenHash: string,
+  nueva: string,
+): Promise<ResultadoRestablecimiento> {
+  const temporal = crearClienteSinSesion();
+
+  const { error: errorEnlace } = await temporal.auth.verifyOtp({
+    type: "recovery",
+    token_hash: tokenHash,
+  });
+  if (errorEnlace) {
+    switch (errorEnlace.code) {
+      // Vencido, ya usado o inexistente: Supabase no distingue entre ellos.
+      case "otp_expired":
+        return { tipo: "enlace-invalido" };
+      case "over_request_rate_limit":
+        return { tipo: "limite" };
+      default:
+        return { tipo: "error", codigo: codigoDe(errorEnlace) };
+    }
+  }
+
+  const { error: errorNueva } = await temporal.auth.updateUser({ password: nueva });
+  if (errorNueva) {
+    // La contraseña no cambió: basta con cerrar la sesión temporal.
+    await temporal.auth.signOut({ scope: "local" });
+    switch (errorNueva.code) {
+      case "same_password":
+        return { tipo: "misma-contrasena" };
+      case "weak_password":
+        return { tipo: "debil" };
+      default:
+        return { tipo: "error", codigo: codigoDe(errorNueva) };
+    }
+  }
+
+  const { error: errorCierre } = await temporal.auth.signOut({ scope: "global" });
+  return { tipo: "ok", sesionesCerradas: !errorCierre };
+}
+
 /** Cierra la sesión solo en este dispositivo (scope "local"). */
 export async function cerrarSesion(): Promise<void> {
   const supabase = await crearClienteServidor();

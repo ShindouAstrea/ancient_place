@@ -1,5 +1,4 @@
-import { z } from "zod";
-
+import { z } from "@/lib/zod";
 import { Constants, type Database } from "@/types/database";
 
 export type EstadoLead = Database["public"]["Enums"]["estado_lead"];

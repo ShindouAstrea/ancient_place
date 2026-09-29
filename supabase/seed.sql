@@ -83,7 +83,8 @@ update public.configuracion_sitio set
   direccion = 'Av. Ejemplo 1234',
   ciudad = 'Santiago',
   region = 'Región Metropolitana',
-  horario_visitas = 'Lunes a domingo de 10:00 a 18:00',
+  horario_tramos = '[{"dias": [1, 2, 3, 4, 5], "desde": "10:00", "hasta": "18:00"}, {"dias": [6, 7], "desde": "11:00", "hasta": "17:00"}]',
+  horario_visitas = 'Sin necesidad de aviso previo.',
   hero_subtitulo = 'Atención profesional las 24 horas en un ambiente tranquilo, cálido y seguro.',
   nosotros_texto = E'Somos un hogar familiar dedicado al cuidado de adultos mayores.\n\nTrabajamos con respeto, cercanía y comunicación permanente con las familias.',
   destacados = '[{"valor": "10", "etiqueta": "años de experiencia"}, {"valor": "24/7", "etiqueta": "atención y supervisión"}]',
@@ -102,5 +103,5 @@ insert into public.testimonios (texto, autor, relacion, orden) values
   ('Testimonio de ejemplo: el trato con mi mamá ha sido excelente.', 'M. S.', 'hija de residente', 0);
 
 insert into public.preguntas_frecuentes (pregunta, respuesta, orden) values
-  ('¿Cuál es el horario de visitas?', 'Lunes a domingo de 10:00 a 18:00, sin aviso previo.', 0),
+  ('¿Cuál es el horario de visitas?', 'Lunes a viernes de 10:00 a 18:00, y sábados y domingos de 11:00 a 17:00, sin aviso previo.', 0),
   ('¿Qué incluye la mensualidad?', 'Respuesta de ejemplo: alojamiento, alimentación y cuidados.', 1);

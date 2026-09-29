@@ -1,6 +1,5 @@
-import { z } from "zod";
-
 import { siteConfig } from "@/config/site";
+import { z } from "@/lib/zod";
 
 /**
  * Validación del formulario de contacto. Se usa en el cliente (respuesta inmediata)

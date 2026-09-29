@@ -7,10 +7,13 @@ import type { Tables } from "./database";
 
 export type Destacado = { valor: string; etiqueta: string };
 
+/** Tramo del horario de visitas. dias: 1 = lunes … 7 = domingo; horas "HH:MM" (24 h). */
+export type TramoHorario = { dias: number[]; desde: string; hasta: string };
+
 export type ConfiguracionSitio = Omit<
   Tables<"configuracion_sitio">,
-  "id" | "destacados" | "updated_at"
-> & { destacados: Destacado[] };
+  "id" | "destacados" | "horario_tramos" | "updated_at"
+> & { destacados: Destacado[]; horario_tramos: TramoHorario[] };
 
 export type Servicio = Pick<Tables<"servicios">, "id" | "titulo" | "descripcion" | "icono">;
 export type Razon = Pick<Tables<"razones">, "id" | "titulo" | "descripcion" | "icono">;

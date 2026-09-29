@@ -106,6 +106,9 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       // Panel: fuera de los buscadores también por cabecera (cubre respuestas no HTML).
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      // Su URL lleva el token del correo: que no viaje como Referer a ningún sitio.
+      // (Si dos reglas definen la misma cabecera, gana la última.)
+      { source: "/admin/restablecer", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };

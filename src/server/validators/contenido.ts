@@ -1,6 +1,6 @@
-import { z } from "zod";
-
 import { NOMBRES_ICONOS } from "@/config/iconos";
+import { DIAS_SEMANA } from "@/lib/utils/horario";
+import { z } from "@/lib/zod";
 import type { TipoLista } from "@/types/contenido";
 
 import { normalizarTelefonoChileno } from "./contacto";
@@ -114,6 +114,49 @@ const rutOpcional = z
   .refine((valor) => !valor || rutValido(valor), { error: "El RUT no es válido." });
 
 // -----------------------------------------------------------------------------
+// Horario de visitas por tramos
+// -----------------------------------------------------------------------------
+
+/** Tramos del formulario: cada uno con 7 casillas (tramoN_dia_D) y dos horas. */
+export const TRAMOS_HORARIO = [1, 2, 3] as const;
+const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Agrupa los campos tramoN_* del formulario en una lista (los demás campos no cambian). */
+function agruparTramos(datos: unknown) {
+  if (typeof datos !== "object" || datos === null) return datos;
+  const campos = datos as Record<string, unknown>;
+  const valor = (clave: string) => (typeof campos[clave] === "string" ? campos[clave] : "");
+  return {
+    ...campos,
+    horario_tramos: TRAMOS_HORARIO.map((n) => ({
+      dias: DIAS_SEMANA.filter((d) => campos[`tramo${n}_dia_${d}`] !== undefined),
+      // Algunos navegadores envían segundos ("10:00:00"): se guardan solo horas y minutos.
+      desde: valor(`tramo${n}_desde`).trim().slice(0, 5),
+      hasta: valor(`tramo${n}_hasta`).trim().slice(0, 5),
+    })),
+  };
+}
+
+/** Valida los tramos y descarta los vacíos. Los errores indican el número de tramo. */
+const horarioTramos = z
+  .array(z.object({ dias: z.array(z.number()), desde: z.string(), hasta: z.string() }))
+  .superRefine((tramos, ctx) => {
+    tramos.forEach((tramo, i) => {
+      if (tramo.dias.length === 0 && !tramo.desde && !tramo.hasta) return;
+      const problema =
+        tramo.dias.length === 0
+          ? "marca al menos un día"
+          : !HORA.test(tramo.desde) || !HORA.test(tramo.hasta)
+            ? "indica la hora de inicio y la de término"
+            : tramo.desde >= tramo.hasta
+              ? "la hora de término debe ser posterior a la de inicio"
+              : null;
+      if (problema) ctx.addIssue({ code: "custom", message: `Tramo ${i + 1}: ${problema}.` });
+    });
+  })
+  .transform((tramos) => tramos.filter((t) => t.dias.length > 0));
+
+// -----------------------------------------------------------------------------
 // Secciones del formulario "Información del sitio". Cada una guarda sus columnas.
 // -----------------------------------------------------------------------------
 
@@ -132,14 +175,18 @@ export const esquemasSeccion = {
     email_notificaciones: emailOpcional,
     email_remitente: remitenteOpcional,
   }),
-  ubicacion: z.object({
-    direccion: texto(200),
-    ciudad: texto(100),
-    region: texto(100),
-    horario_visitas: texto(300),
-    maps_embed_url: mapaEmbedOpcional,
-    maps_url: urlOpcional,
-  }),
+  ubicacion: z.preprocess(
+    agruparTramos,
+    z.object({
+      direccion: texto(200),
+      ciudad: texto(100),
+      region: texto(100),
+      horario_tramos: horarioTramos,
+      horario_visitas: texto(300),
+      maps_embed_url: mapaEmbedOpcional,
+      maps_url: urlOpcional,
+    }),
+  ),
   portada: z.object({
     hero_titulo: textoObligatorio(150, "Ingresa el título de la portada."),
     hero_subtitulo: texto(300),

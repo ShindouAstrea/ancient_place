@@ -1,36 +1,53 @@
 # [NOMBRE DEL HOGAR] — Sitio web
 
 Landing page y panel de administración de un hogar de reposo para adultos mayores.
-Next.js (App Router) · TypeScript · Tailwind CSS · Supabase · Docker.
+Next.js (App Router) · TypeScript · Tailwind CSS · Supabase · Resend · Docker.
 
-> Documentación inicial (etapa 1). La guía completa de despliegue, Supabase, Resend,
-> Vercel y dominio se agrega en la etapa 6.
+El contenido del sitio (nombre, contacto, horario, fotos, servicios, testimonios…) se edita
+desde el panel, en `/admin/sitio`: no hace falta tocar código ni volver a desplegar.
 
-## Requisitos
+## Índice
 
-- Node.js 24 LTS (mínimo 22.12). Ver `.nvmrc`.
-- pnpm vía corepack: `corepack enable pnpm` (la versión se toma de `packageManager`).
-  En Windows, si Node está instalado en `C:\Program Files`, ese comando requiere una
-  terminal **como administrador**. Alternativa sin permisos: anteponer `corepack` a cada
-  comando (`corepack pnpm dev`, `corepack pnpm db:start`, etc.).
-- Docker Desktop (o Docker Engine + Compose v2).
-- La CLI de Supabase viene como dependencia de desarrollo: `pnpm exec supabase ...`.
-  Supabase local necesita Docker en ejecución.
+1. [Requisitos](#1-requisitos)
+2. [Desarrollo local](#2-desarrollo-local)
+3. [Variables de entorno: build vs runtime](#3-variables-de-entorno-build-vs-runtime)
+4. [Puesta en producción, paso a paso](#4-puesta-en-producción-paso-a-paso)
+5. [Panel de administración](#5-panel-de-administración)
+6. [Dónde editar los textos del sitio](#6-dónde-editar-los-textos-del-sitio)
+7. [SEO](#7-seo)
+8. [Formulario de contacto: capas de seguridad](#8-formulario-de-contacto-capas-de-seguridad)
+9. [Checklist de seguridad antes de publicar](#9-checklist-de-seguridad-antes-de-publicar)
+10. [Actualizar producción cuando cambia el código](#10-actualizar-producción-cuando-cambia-el-código)
 
-## Desarrollo local sin Docker (recomendado para el día a día)
+---
+
+## 1. Requisitos
+
+- **Node.js 24 LTS** (mínimo 22.12). Ver `.nvmrc`.
+- **pnpm** vía corepack: `corepack enable pnpm` (la versión se toma de `packageManager`).
+  En Windows, si Node está instalado en `C:\Program Files`, ese comando requiere una terminal
+  **como administrador**. Alternativa sin permisos: anteponer `corepack` a cada comando
+  (`corepack pnpm dev`, `corepack pnpm db:start`, etc.).
+- **Docker Desktop** (o Docker Engine + Compose v2). Lo necesita Supabase local.
+- **Supabase CLI**: viene como dependencia de desarrollo, no hay que instalarla aparte
+  (`pnpm exec supabase ...`).
+
+## 2. Desarrollo local
+
+### Sin Docker (recomendado para el día a día)
 
 ```bash
 corepack enable pnpm
 pnpm install
-cp .env.example .env.local   # completar valores
+cp .env.example .env.local   # los valores de ejemplo ya sirven en local
+pnpm db:start                # Supabase local (ver abajo)
 pnpm dev                     # http://localhost:3000
 ```
 
-**El sitio web está en http://localhost:3000** (se detiene con Ctrl+C). `supabase start` no lo
-inicia: los puertos 5432x son solo de Supabase (ver la tabla de abajo). El formulario de
-contacto necesita Supabase local en ejecución.
+**El sitio web está en http://localhost:3000** (se detiene con Ctrl+C). `pnpm db:start` no lo
+inicia: los puertos 5432x son solo de Supabase.
 
-## Base de datos local (Supabase)
+### Base de datos local (Supabase)
 
 Requiere Docker en ejecución. La primera vez descarga varias imágenes (unos minutos).
 
@@ -43,24 +60,28 @@ pnpm db:test      # verifica las políticas de seguridad (deben pasar todos los 
 | -------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | API (`NEXT_PUBLIC_SUPABASE_URL`) | http://127.0.0.1:54321 | La usa la app, no el navegador. Es normal que la raíz responda `no Route matched`: solo atiende rutas como `/rest/v1`. |
 | Studio (panel visual)            | http://127.0.0.1:54323 | Ver y editar datos (ej: Table Editor → `leads`).                                                                       |
-| Mailpit (correos capturados)     | http://127.0.0.1:54324 | Correos que Supabase Auth enviaría en local. Los avisos del formulario van por Resend, no aparecen aquí.               |
+| Mailpit (correos capturados)     | http://127.0.0.1:54324 | Correos que Supabase Auth enviaría (ej: recuperar contraseña). Los avisos del formulario van por Resend.               |
 
 - La _Publishable key_ local es fija y ya viene en `.env.example`.
-- `supabase/seed.sql` carga contactos ficticios y un administrador de prueba
-  (`admin@example.com`). Nunca se aplica en producción.
+- `supabase/seed.sql` carga contenido de ejemplo, contactos ficticios y un administrador de
+  prueba: **`admin@example.com`** / **`admin-local-12345`**. Nunca se aplica en producción.
 - **Cambios de esquema:** crear una migración con `pnpm exec supabase migration new <nombre>`,
   escribir el SQL, aplicar con `pnpm db:reset` y regenerar los tipos con `pnpm db:types`.
   Toda tabla nueva debe tener RLS habilitado (el test `db:test` falla si no).
+- `supabase/config.toml` solo configura Supabase **local**. La configuración de producción se
+  hace en el Dashboard (ver [4.4](#44-configurar-supabase-auth)); no uses
+  `supabase config push` sin revisarlo (tiene claves de prueba).
 
-## Desarrollo local con Docker
+### Con Docker
 
 ```bash
 cp .env.example .env.local
-pnpm docker:dev              # docker compose up --build
+pnpm db:start                # Supabase local (fuera del compose)
+pnpm docker:dev              # docker compose up --build → http://localhost:3000
 ```
 
-El código se monta como volumen, por lo que los cambios se recargan en caliente
-(en unos 3 segundos).
+El código se monta como volumen, por lo que los cambios se recargan en caliente (en unos 3
+segundos).
 
 > **Por qué el contenedor usa webpack y polling:** Docker Desktop en Windows y macOS no
 > propaga los eventos de cambio de archivos a través de los bind mounts. Por eso el
@@ -70,17 +91,10 @@ El código se monta como volumen, por lo que los cambios se recargan en caliente
 > Con `pnpm dev` fuera de Docker se sigue usando Turbopack, que es más rápido. Para mejorar
 > el rendimiento en Windows, clona el repositorio dentro de WSL 2 (`/home/usuario/...`).
 
-### Conectar la app en Docker con Supabase local
+#### Conectar la app en Docker con Supabase local
 
-Supabase local se levanta con su CLI, que crea sus propios contenedores (no se replica
-en `docker-compose.yml`):
-
-```bash
-pnpm db:start        # supabase start
-pnpm exec supabase status   # muestra API URL y Publishable key
-```
-
-El problema: hay **dos clientes** que deben llegar a Supabase.
+Supabase local se levanta con su CLI, que crea sus propios contenedores (no se replica en
+`docker-compose.yml`). Hay **dos clientes** que deben llegar a Supabase:
 
 | Quién se conecta                    | Desde dónde          | URL                                 |
 | ----------------------------------- | -------------------- | ----------------------------------- |
@@ -97,7 +111,31 @@ Dentro del contenedor, `127.0.0.1` apunta al propio contenedor, no a tu equipo. 
 Alternativa: unir el contenedor a la red que crea la CLI (`supabase_network_<project_id>`)
 y usar `http://supabase_kong_<project_id>:8000` como `SUPABASE_INTERNAL_URL`.
 
-## Variables de entorno: build vs runtime
+### Scripts
+
+| Script              | Descripción                                           |
+| ------------------- | ----------------------------------------------------- |
+| `pnpm dev`          | Servidor de desarrollo                                |
+| `pnpm build`        | Build de producción (salida `standalone`)             |
+| `pnpm start`        | Sirve el build de producción                          |
+| `pnpm lint`         | ESLint                                                |
+| `pnpm typecheck`    | Verificación de tipos con TypeScript                  |
+| `pnpm format`       | Formatea con Prettier (`format:check` solo revisa)    |
+| `pnpm db:start`     | Levanta Supabase local                                |
+| `pnpm db:stop`      | Detiene Supabase local                                |
+| `pnpm db:reset`     | Recrea la base local: migraciones + `seed.sql`        |
+| `pnpm db:test`      | Tests de seguridad (RLS y privilegios) con pgTAP      |
+| `pnpm db:migrate`   | Aplica migraciones pendientes a Supabase local        |
+| `pnpm db:push`      | Aplica migraciones al proyecto remoto vinculado       |
+| `pnpm db:types`     | Genera `src/types/database.ts` desde el esquema local |
+| `pnpm docker:dev`   | Desarrollo en Docker con hot reload                   |
+| `pnpm docker:build` | Construye la imagen de producción                     |
+
+**Integración continua:** en cada push a `master`, GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) ejecuta lint, typecheck, revisión
+de formato y el build de la imagen Docker (sin publicarla).
+
+## 3. Variables de entorno: build vs runtime
 
 Todas están documentadas en [`.env.example`](.env.example) y se validan con Zod en
 [`src/lib/env.ts`](src/lib/env.ts).
@@ -106,6 +144,9 @@ Todas están documentadas en [`.env.example`](.env.example) y se validan con Zod
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | **Build** (públicas)   | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_ENABLED`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Al ejecutar `next build`. En Docker, como `--build-arg`. Cambiarlas exige reconstruir. |
 | **Runtime** (secretas) | `RATE_LIMIT_SALT`, `SUPABASE_FORMULARIO_SECRETO`; opcionales: `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `SUPABASE_INTERNAL_URL`                               | Al iniciar el servidor. En Docker, con `--env-file` o `-e`.                            |
+
+Las variables `NEXT_PUBLIC_*` quedan **incrustadas en el código que descarga el navegador**:
+nunca pongas un secreto en una variable con ese prefijo.
 
 Las variables de runtime se validan al arrancar (`src/instrumentation.ts`): si falta una
 obligatoria, el servidor no inicia y las páginas dinámicas (formulario, panel) responden
@@ -119,35 +160,51 @@ error 500; el motivo exacto aparece en los logs (en Vercel: Project → Logs).
   ```
 - **`RESEND_API_KEY` (opcional):** envía el correo de aviso cuando llega un contacto. Sin ella
   el aviso se omite, pero los contactos se guardan igual y se ven en `/admin/leads`.
-
-- `NEXT_PUBLIC_SITE_URL` admite el dominio sin protocolo (`dominio.cl` → `https://dominio.cl`).
-  En Vercel puede omitirse: se usa el dominio de producción del proyecto.
+- **`NEXT_PUBLIC_SITE_URL`:** la dirección pública definitiva (`https://dominio.cl`). Admite el
+  dominio sin protocolo (`dominio.cl`). En Vercel puede omitirse mientras no haya dominio: se
+  usa el dominio de producción del proyecto. La usan los enlaces canónicos, el sitemap y la
+  imagen para compartir.
 - **CAPTCHA opcional:** `NEXT_PUBLIC_TURNSTILE_ENABLED="false"` desactiva Turnstile en el
-  formulario de contacto y en el login del panel; entonces `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y
+  formulario de contacto y en el panel; entonces `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y
   `TURNSTILE_SECRET_KEY` pueden omitirse. Por defecto está **activo**. Siguen protegiendo el
   honeypot, el rate limit y el secreto del formulario, pero conviene activarlo antes de
   publicar definitivamente (el servidor lo recuerda en los logs al arrancar). Si se desactiva
   aquí, también debe estar desactivado en Supabase (Authentication → CAPTCHA), o el login
   del panel será rechazado.
 
-## Formulario de contacto: capas de seguridad
+## 4. Puesta en producción, paso a paso
 
-Flujo: formulario → Server Action → Zod → honeypot → Turnstile → rate limit → `crear_lead`
-→ correo con Resend (se envía después de responder; si falla, el lead igual queda guardado).
+Orden recomendado: Supabase → Vercel (con la URL de Vercel) → dominio `.cl` → Resend. Los
+nombres de los menús de cada servicio pueden variar levemente entre versiones.
 
-| Capa                           | Protege contra                                                         |
-| ------------------------------ | ---------------------------------------------------------------------- |
-| Validación Zod (cliente)       | Errores de tipeo; respuesta inmediata a la persona                     |
-| Validación Zod (servidor)      | Datos manipulados: el servidor es la fuente de verdad                  |
-| Honeypot (`sitio_web`)         | Bots simples (se les responde "éxito" sin guardar nada)                |
-| Cloudflare Turnstile           | Bots avanzados (el token se verifica en el servidor)                   |
-| Rate limit (5 por hora por IP) | Abuso desde una misma conexión (IP guardada solo como hash HMAC)       |
-| Secreto compartido en Vault    | Crear leads llamando directo a la API de Supabase con la clave pública |
-| Restricciones SQL + RLS        | Datos fuera de formato; lectura/edición por quien no es admin          |
+### 4.1 Crear el proyecto en Supabase (región São Paulo)
 
-### Secreto del formulario en producción
+1. En https://supabase.com/dashboard → **New project**.
+2. Nombre del proyecto, **Database Password** (usa "Generate" y guárdala en tu gestor de
+   contraseñas) y **Region: South America (São Paulo)**, la más cercana a Chile: menos
+   latencia para el sitio y el panel.
+3. Cuando termine de crearse, anota:
+   - **Project URL** (`https://<ref>.supabase.co`) → `NEXT_PUBLIC_SUPABASE_URL`. El `<ref>`
+     es el identificador del proyecto.
+   - **Publishable key** (`sb_publishable_...`, en Project Settings → API Keys) →
+     `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. **No** uses la _secret key_ ni la `service_role`.
 
-Los leads solo se crean con la función `crear_lead()`, que exige un secreto guardado en
+### 4.2 Vincular el repositorio y aplicar las migraciones
+
+```bash
+pnpm exec supabase login                       # abre el navegador para autorizar la CLI
+pnpm exec supabase link --project-ref <ref>    # pide la Database Password
+pnpm db:push                                   # aplica supabase/migrations al proyecto
+pnpm exec supabase migration list              # local y remoto deben coincidir
+```
+
+`db:push` aplica solo las migraciones (tablas, funciones, RLS, bucket de fotos); **nunca**
+el `seed.sql`. El sitio parte con el nombre genérico «Hogar de reposo» y las secciones vacías
+ocultas, hasta completarlas en el panel.
+
+### 4.3 Secreto del formulario en Supabase Vault
+
+Los contactos solo se guardan con la función `crear_lead()`, que exige un secreto guardado en
 **Supabase Vault** y conocido únicamente por el servidor Next. En local ya viene en
 `seed.sql`. En producción, **una sola vez**:
 
@@ -162,65 +219,59 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # gen
 2. Configurar el mismo valor como `SUPABASE_FORMULARIO_SECRETO` en Vercel (o en el proveedor).
 
 Para rotarlo: `select vault.update_secret((select id from vault.secrets where name = 'formulario_secreto'), '<NUEVO>');`
-y actualizar la variable. Si el secreto falta o no coincide, el formulario deja de guardar
-(falla de forma cerrada) y el servidor lo registra en los logs.
+y actualizar la variable. Si el secreto falta o no coincide, el formulario y el login dejan de
+funcionar (fallan de forma cerrada) y el servidor lo registra en los logs (código `55000`).
 
-> **IP del visitante:** se toma de `x-real-ip` / `x-forwarded-for`. Vercel sobrescribe esas
-> cabeceras, por lo que son confiables. En otro proveedor, verificar que su proxy también
-> lo haga; de lo contrario el rate limit podría evadirse falsificando la cabecera.
+### 4.4 Configurar Supabase Auth
 
-## Panel de administración
+1. **Registro público:** Authentication → Sign In / Providers → desactivar **Allow new users
+   to sign up**. Mantener habilitado el proveedor **Email** (lo usa el ingreso con contraseña).
+2. **Largo mínimo de contraseña:** en el proveedor Email, **Minimum password length** = `12`.
+   Opcional (plan Pro): activar **Prevent use of leaked passwords**.
+3. **Site URL:** Authentication → URL Configuration → **Site URL** = la dirección pública del
+   sitio, sin `/` al final (ej: `https://dominio.cl`, o la de Vercel mientras no haya
+   dominio). El enlace de recuperación de contraseña se arma con ella: si cambias de dominio,
+   actualízala.
+4. **Correo de recuperación en español:** Authentication → Emails → Templates → **Reset
+   Password**. Asunto: `Restablece tu contraseña del panel`; cuerpo: pegar el contenido de
+   [`supabase/templates/recuperar-contrasena.html`](supabase/templates/recuperar-contrasena.html).
+   **Obligatorio:** la plantilla por defecto de Supabase enlaza a otra dirección y con ella la
+   recuperación no funciona.
+   En la misma sección, aviso de seguridad **Password changed**: activarlo, asunto
+   `Tu contraseña del panel cambió` y cuerpo de
+   [`supabase/templates/contrasena-cambiada.html`](supabase/templates/contrasena-cambiada.html).
+5. **Envío de correos de Supabase (SMTP):** estos correos los envía Supabase Auth, no la app.
+   El servicio incluido en Supabase **solo entrega a los correos de los miembros de tu
+   organización en Supabase** y permite muy pocos correos por hora: no sirve para producción.
+   Configura Resend como SMTP en Authentication → Emails → **SMTP Settings** (requiere
+   [4.9](#49-resend-correos-y-verificación-del-dominio-cl)):
 
-| Ruta            | Contenido                                                          |
-| --------------- | ------------------------------------------------------------------ |
-| `/admin/login`  | Ingreso con correo y contraseña                                    |
-| `/admin`        | Inicio: resumen de contactos y módulos (actuales y futuros)        |
-| `/admin/leads`  | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
-| `/admin/sitio`  | Sitio web: información, fotos, servicios, testimonios, preguntas   |
-| `/admin/cuenta` | Mi cuenta: cambiar la contraseña                                   |
+   | Campo        | Valor                                                                        |
+   | ------------ | ---------------------------------------------------------------------------- |
+   | Host         | `smtp.resend.com`                                                            |
+   | Port         | `465`                                                                        |
+   | Username     | `resend`                                                                     |
+   | Password     | una API key de Resend (conviene crear una aparte, solo para esto)            |
+   | Sender email | un correo de tu dominio verificado en Resend (ej: `no-responder@dominio.cl`) |
+   | Sender name  | el nombre del hogar                                                          |
 
-### Roles
+   Mientras no verifiques tu dominio en Resend, usa `onboarding@resend.dev` como Sender
+   email: así solo llegan correos a la dirección de tu cuenta de Resend. Con SMTP propio, sube
+   el cupo en Authentication → Rate Limits (ej: 30 correos por hora).
 
-| Rol         | Da acceso a                                                                   |
-| ----------- | ----------------------------------------------------------------------------- |
-| `sitio`     | **Sitio web** (todo el contenido público) y **Contactos** del formulario      |
-| `pacientes` | Módulos con datos de residentes (Pacientes, Agenda, Inventario: próximamente) |
+6. **CAPTCHA** (cuando se active Turnstile en el sitio): Authentication → Attack Protection →
+   activar **CAPTCHA protection**, proveedor **Cloudflare Turnstile**, con la **misma clave
+   secreta** que `TURNSTILE_SECRET_KEY` (el par de `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), y quitar
+   `NEXT_PUBLIC_TURNSTILE_ENABLED="false"` en Vercel (requiere un nuevo deploy). Ambos lados
+   deben coincidir: activo en los dos o desactivado en los dos. Las claves se crean en
+   Cloudflare → Turnstile → Add widget, con el dominio del sitio.
+7. Opcional (plan Pro): Authentication → Sessions → limitar la duración de las sesiones.
 
-Una persona puede tener ambos roles. Cada rol se exige en el panel **y en la base de datos
-(RLS)**: aunque alguien llamara directo a la API, sin el rol no puede leer ni modificar esos datos.
-
-### Entrar en local
-
-`corepack pnpm dev`, abrir http://localhost:3000/admin e ingresar con el administrador de
-prueba del seed: **`admin@example.com`** / **`admin-local-12345`** (tiene ambos roles; solo
-existe en local).
-
-### Capas de seguridad del acceso
-
-| Capa                                                                  | Protege contra                       |
-| --------------------------------------------------------------------- | ------------------------------------ |
-| Registro público deshabilitado                                        | Que cualquiera cree una cuenta       |
-| Contraseñas de 12 caracteres o más                                    | Contraseñas fáciles de adivinar      |
-| Rate limit: 10 intentos por hora por IP                               | Probar contraseñas por fuerza bruta  |
-| CAPTCHA (Turnstile) opcional, verificado por Supabase                 | Intentos automatizados               |
-| Mismo mensaje si el correo no existe o la contraseña es incorrecta    | Averiguar qué correos tienen cuenta  |
-| Rol en la tabla `admins`, verificado en cada página y acción, más RLS | Cuentas sin rol de administrador     |
-| Roles `sitio` / `pacientes` exigidos por RLS                          | Ver o editar lo que no corresponde   |
-| Cookie de sesión `httpOnly`                                           | Robo de la sesión mediante XSS       |
-| Sesión verificada contra el servidor de Auth en cada página           | Seguir usando una sesión ya cerrada  |
-| Cambio de contraseña exige la actual y cierra los otros dispositivos  | Uso de un celular con sesión abierta |
-| `noindex` (metadata + cabecera `X-Robots-Tag`)                        | Que el panel aparezca en buscadores  |
-
-Para agregar un módulo (agenda, inventario, pacientes): crear su página en
-`src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a `requerirRol("pacientes")` (o el rol
-que corresponda) en ella y en sus servicios, proteger sus tablas con `tiene_rol(...)` en RLS, y
-cambiar `disponible: true` en [`src/config/admin.ts`](src/config/admin.ts).
-
-### Crear un administrador (producción)
+### 4.5 Crear el primer administrador
 
 1. Supabase Dashboard → **Authentication → Users → Add user → Create new user**: correo,
    contraseña (12 caracteres o más) y marcar **Auto Confirm User**.
-2. SQL Editor (elige los roles que correspondan):
+2. SQL Editor (elige los roles que correspondan; ver [Roles](#roles)):
    ```sql
    insert into public.admins (user_id, email)
    select id, email from auth.users where email = 'persona@dominio.cl';
@@ -235,98 +286,348 @@ cambiar `disponible: true` en [`src/config/admin.ts`](src/config/admin.ts).
    ```
 
 Crear el usuario no basta: sin la fila en `admins`, el login responde "Esta cuenta no tiene
-acceso al panel"; y sin roles entra al panel pero no ve ningún módulo.
+acceso al panel"; y sin roles entra al panel pero no ve ningún módulo. Los administradores
+siguientes se crean igual.
 
 - Quitar un rol: `delete from public.admin_roles where rol = 'pacientes' and user_id = (select user_id from public.admins where email = 'persona@dominio.cl');`
 - Quitar todo el acceso: `delete from public.admins where email = 'persona@dominio.cl';` (sus
   roles se borran solos; opcionalmente borra también el usuario en Authentication → Users).
 
-### Cambiar la contraseña de un administrador
+### 4.6 Desplegar en Vercel
 
-Cada administrador la cambia en **Mi cuenta** (`/admin/cuenta`): pide la contraseña actual y,
-al guardar, cierra la sesión en sus otros dispositivos.
+**Vercel no usa el `Dockerfile`:** detecta Next.js y compila con su propia infraestructura
+(`pnpm build`, con la versión de pnpm de `packageManager`). El Dockerfile es para otros
+proveedores ([4.10](#410-docker-en-otro-proveedor)).
 
-Si alguien **olvidó** su contraseña, otro administrador (o quien administre Supabase) le
-asigna una temporal en el SQL Editor (Supabase la guarda cifrada con bcrypt), y la persona
-la cambia después en Mi cuenta:
+1. https://vercel.com → **Add New → Project** → importar el repositorio de GitHub.
+   Framework: Next.js (se detecta solo).
+2. **Environment Variables** (entorno _Production_; marca las secretas como **Sensitive**):
 
-```sql
-update auth.users
-set encrypted_password = extensions.crypt('<NUEVA_CONTRASEÑA>', extensions.gen_salt('bf'))
-where email = 'persona@dominio.cl';
-```
+   | Variable                               | Valor                                                                                        |
+   | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+   | `NEXT_PUBLIC_SITE_URL`                 | `https://dominio.cl` (vacía mientras no haya dominio)                                        |
+   | `NEXT_PUBLIC_SUPABASE_URL`             | Project URL de [4.1](#41-crear-el-proyecto-en-supabase-región-são-paulo)                     |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key de 4.1                                                                       |
+   | `NEXT_PUBLIC_TURNSTILE_ENABLED`        | `false` hasta configurar Turnstile                                                           |
+   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | clave pública de Turnstile (si está activo)                                                  |
+   | `TURNSTILE_SECRET_KEY`                 | clave secreta de Turnstile (si está activo) — Sensitive                                      |
+   | `RATE_LIMIT_SALT`                      | valor aleatorio generado — Sensitive                                                         |
+   | `SUPABASE_FORMULARIO_SECRETO`          | el mismo secreto de Vault de [4.3](#43-secreto-del-formulario-en-supabase-vault) — Sensitive |
+   | `RESEND_API_KEY`                       | API key de Resend (opcional) — Sensitive                                                     |
 
-### Configurar Supabase Auth en producción
+3. **Deploy.** Luego, en Settings → Functions → **Function Region**, elige **São Paulo
+   (gru1)**: queda junto a la base de datos y el sitio responde más rápido.
+4. Entra a `https://<proyecto>.vercel.app/admin` con el administrador de 4.5 y completa
+   `/admin/sitio`.
 
-Los nombres de los menús del Dashboard pueden variar levemente entre versiones.
+- **Cambiar una `NEXT_PUBLIC_*` exige volver a desplegar** (Deployments → ⋯ → Redeploy): se
+  incrustan al compilar. Las secretas se leen al arrancar, pero también requieren redeploy
+  para tomar el valor nuevo.
+- Cada push a la rama de producción despliega solo. Las _Preview Deployments_ (otras ramas)
+  están protegidas por Vercel Authentication y Vercel les agrega `noindex`.
 
-1. **Registro público:** Authentication → Sign In / Providers → desactivar **Allow new users
-   to sign up**. Mantener habilitado el proveedor **Email** (lo usa el ingreso con contraseña).
-2. **Largo mínimo de contraseña:** en el proveedor Email, **Minimum password length** = `12`.
-   Opcional (plan Pro): activar **Prevent use of leaked passwords**.
-3. **CAPTCHA** (cuando se active Turnstile en el sitio): Authentication → Attack Protection →
-   activar **CAPTCHA protection**, proveedor **Cloudflare Turnstile**, con la **misma clave
-   secreta** que `TURNSTILE_SECRET_KEY` (el par de `NEXT_PUBLIC_TURNSTILE_SITE_KEY`), y quitar
-   `NEXT_PUBLIC_TURNSTILE_ENABLED="false"` en Vercel (requiere un nuevo deploy). Ambos lados
-   deben coincidir: activo en los dos o desactivado en los dos.
-4. Opcional (plan Pro): Authentication → Sessions → limitar la duración de las sesiones.
+### 4.7 Dominio .cl: de NIC Chile a Vercel
 
-## Imagen Docker de producción
+NIC Chile registra el dominio pero no aloja sus registros DNS: solo indica qué **servidores de
+nombre** responden por él. Lo más simple es delegarlo a Vercel, que además crea el
+certificado HTTPS.
+
+1. **Primero en Vercel:** Project → Settings → **Domains** → Add → `dominio.cl`. Acepta
+   agregar también `www.dominio.cl` con redirección a `dominio.cl`. Elige la opción de
+   **nameservers de Vercel**: mostrará `ns1.vercel-dns.com` y `ns2.vercel-dns.com`.
+   (Agregarlo primero hace que Vercel ya responda por el dominio cuando NIC Chile lo revise.)
+2. **Antes de cambiar nada**, si el dominio ya tiene correo (ej: Google Workspace o el correo
+   de otro proveedor), copia sus registros MX/TXT actuales y créalos en Vercel → Domains →
+   `dominio.cl` → DNS Records. Si no, el correo del dominio deja de funcionar.
+3. **En NIC Chile:** https://www.nic.cl → ingresa a tu cuenta → **Mis dominios** → elige
+   `dominio.cl` → **Modificar** → **Servidores de nombre (DNS)**. Reemplaza los actuales por:
+   - `ns1.vercel-dns.com`
+   - `ns2.vercel-dns.com`
+
+   Guarda y confirma. NIC Chile verifica que esos servidores respondan por el dominio.
+
+4. **Espera la propagación**: normalmente de minutos a unas horas (hasta 48 h en casos
+   raros). Vercel marca el dominio como **Valid Configuration** y emite el certificado HTTPS
+   solo. Puedes revisar con `nslookup -type=NS dominio.cl`.
+5. **Actualiza la dirección definitiva** en:
+   - Vercel: `NEXT_PUBLIC_SITE_URL=https://dominio.cl` → **Redeploy**.
+   - Supabase: Authentication → URL Configuration → **Site URL** = `https://dominio.cl`.
+   - Cloudflare Turnstile (si está activo): agrega el dominio al widget.
+
+**Alternativa** (si prefieres mantener el DNS en otro proveedor, ej: Cloudflare): en lugar de
+cambiar los servidores de nombre, crea en ese proveedor los registros que muestra Vercel
+(típicamente `A @ 76.76.21.21` y `CNAME www cname.vercel-dns.com`; usa los valores exactos
+que indique Vercel). En Cloudflare, déjalos como "DNS only" (nube gris).
+
+### 4.8 Google: Search Console y ficha del negocio
+
+1. **Google Search Console** (https://search.google.com/search-console) → Agregar propiedad
+   → **Dominio** → `dominio.cl`. Google entrega un registro TXT: créalo en Vercel → Domains →
+   `dominio.cl` → DNS Records y verifica. Luego, en **Sitemaps**, envía
+   `https://dominio.cl/sitemap.xml`.
+2. **Perfil de Empresa de Google** (https://business.google.com): es lo que más ayuda a
+   aparecer en Google Maps y en búsquedas como «hogar de reposo en [comuna]». Usa
+   exactamente el mismo nombre, dirección y teléfono que en el panel.
+3. Revisa los datos estructurados en https://search.google.com/test/rich-results.
+
+### 4.9 Resend: correos y verificación del dominio .cl
+
+Resend envía los avisos de nuevos contactos (desde la app) y, como SMTP, los correos de
+Supabase Auth (recuperar contraseña). Solo envía desde dominios que verifiques con registros
+DNS: por eso sirve tu `.cl`, pero no un dominio `vercel.app` (su DNS no es tuyo).
+
+1. Crea la cuenta en https://resend.com → **API Keys** → Create API Key (permiso _Sending
+   access_). Úsala como `RESEND_API_KEY` en Vercel; crea otra para el SMTP de Supabase (4.4).
+2. **Domains → Add Domain** → `dominio.cl`, región **São Paulo (sa-east-1)**.
+3. Resend muestra los registros que debes crear. Suelen ser (copia los **valores exactos**
+   de Resend):
+
+   | Tipo | Nombre (en Vercel)  | Valor                                                 |
+   | ---- | ------------------- | ----------------------------------------------------- |
+   | MX   | `send`              | `feedback-smtp.sa-east-1.amazonses.com`, prioridad 10 |
+   | TXT  | `send`              | `v=spf1 include:amazonses.com ~all`                   |
+   | TXT  | `resend._domainkey` | la clave DKIM (`p=MIGf...`)                           |
+   | TXT  | `_dmarc` (opcional) | `v=DMARC1; p=none;`                                   |
+
+   Créalos donde se administra el DNS del dominio: si seguiste 4.7, en Vercel → Domains →
+   `dominio.cl` → DNS Records (en "Name" va solo la parte antes de `.dominio.cl`).
+
+4. Vuelve a Resend → **Verify DNS Records**. Queda en **Verified** en minutos u horas.
+5. En el panel, **Sitio web → Información → Avisos por correo**:
+   - **Remitente:** `Sitio web <no-responder@dominio.cl>`.
+   - **Correo que recibe los avisos:** el correo del equipo que atiende los contactos.
+6. En Supabase (4.4, paso 5), cambia el **Sender email** del SMTP a
+   `no-responder@dominio.cl`.
+7. Prueba: envía el formulario de contacto del sitio y revisa que llegue el aviso.
+
+Mientras el dominio no esté verificado: remitente `Sitio web <onboarding@resend.dev>`, que
+solo entrega al correo de tu cuenta de Resend.
+
+### 4.10 Docker en otro proveedor
+
+La imagen sirve para cualquier proveedor que ejecute contenedores (Koyeb, Cloud Run,
+Railway, un VPS…).
 
 ```bash
-# 1. Crear .env.production.local con las variables de build (y de runtime).
-# 2. Construir (lee .env.production.local y pasa las NEXT_PUBLIC_* como build args):
+# 1. Crear .env.production.local con las variables de build y de runtime (sección 3).
+# 2. Construir (lee .env.production.local y pasa las NEXT_PUBLIC_* como --build-arg):
 pnpm docker:build
 
-# 3. Ejecutar (las secretas se entregan en runtime):
+# 3. Ejecutar (las secretas se entregan en runtime, no quedan dentro de la imagen):
 docker run --rm -p 3000:3000 --env-file .env.production.local hogar-web:latest
 ```
 
-El contenedor escucha en `0.0.0.0` y respeta la variable `PORT` (3000 por defecto), como
-requieren proveedores tipo Koyeb o Cloud Run. Incluye `HEALTHCHECK` contra `/api/health`
-y se ejecuta con el usuario sin privilegios `node`.
+- Escucha en `0.0.0.0` y respeta la variable `PORT` (3000 por defecto), como requieren
+  Koyeb o Cloud Run.
+- Incluye `HEALTHCHECK` contra `/api/health` y se ejecuta con el usuario sin privilegios
+  `node`.
+- Las `NEXT_PUBLIC_*` quedan fijas en la imagen: si cambian, hay que reconstruirla.
+- **IP del visitante:** se toma de `x-real-ip` / `x-forwarded-for`. Vercel sobrescribe esas
+  cabeceras, por lo que son confiables. En otro proveedor, verifica que su proxy también lo
+  haga; de lo contrario el rate limit podría evadirse falsificando la cabecera.
+- Para el dominio, usa los registros A/CNAME que indique ese proveedor en vez de los de
+  Vercel (4.7).
 
-## Scripts
+## 5. Panel de administración
 
-| Script              | Descripción                                           |
-| ------------------- | ----------------------------------------------------- |
-| `pnpm dev`          | Servidor de desarrollo                                |
-| `pnpm build`        | Build de producción (salida `standalone`)             |
-| `pnpm lint`         | ESLint                                                |
-| `pnpm typecheck`    | Verificación de tipos con TypeScript                  |
-| `pnpm format`       | Formatea con Prettier                                 |
-| `pnpm db:start`     | Levanta Supabase local                                |
-| `pnpm db:stop`      | Detiene Supabase local                                |
-| `pnpm db:reset`     | Recrea la base local: migraciones + `seed.sql`        |
-| `pnpm db:test`      | Tests de seguridad (RLS y privilegios) con pgTAP      |
-| `pnpm db:migrate`   | Aplica migraciones pendientes a Supabase local        |
-| `pnpm db:push`      | Aplica migraciones al proyecto remoto vinculado       |
-| `pnpm db:types`     | Genera `src/types/database.ts` desde el esquema local |
-| `pnpm docker:dev`   | Desarrollo en Docker con hot reload                   |
-| `pnpm docker:build` | Construye la imagen de producción                     |
+| Ruta                 | Contenido                                                          |
+| -------------------- | ------------------------------------------------------------------ |
+| `/admin/login`       | Ingreso con correo y contraseña                                    |
+| `/admin/recuperar`   | «¿Olvidaste tu contraseña?»: envía un enlace por correo            |
+| `/admin/restablecer` | Destino del enlace: elegir la nueva contraseña                     |
+| `/admin`             | Inicio: resumen de contactos y módulos (actuales y futuros)        |
+| `/admin/leads`       | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
+| `/admin/sitio`       | Sitio web: información, horario, fotos, servicios, testimonios…    |
+| `/admin/cuenta`      | Mi cuenta: cambiar la contraseña                                   |
 
-## Dónde editar los textos del sitio
+### Roles
 
-**Desde el panel, en `/admin/sitio`** (rol `sitio`), sin volver a desplegar: nombre, WhatsApp y
-su mensaje, teléfono, correos, dirección, horario, mapa, portada, «Quiénes somos», fotos,
-servicios, «Por qué elegirnos», testimonios, preguntas frecuentes y datos de la política de
-privacidad. El índice del módulo muestra qué datos faltan.
+| Rol         | Da acceso a                                                                   |
+| ----------- | ----------------------------------------------------------------------------- |
+| `sitio`     | **Sitio web** (todo el contenido público) y **Contactos** del formulario      |
+| `pacientes` | Módulos con datos de residentes (Pacientes, Agenda, Inventario: próximamente) |
 
-- Las secciones **sin contenido no se muestran** (sin fotos no hay galería, sin testimonios no
-  hay sección de testimonios, etc.), y los botones de contacto sin número tampoco.
-- Las páginas públicas siguen siendo **estáticas** (rápidas): al guardar en el panel se
-  regeneran solas en la siguiente visita (y, como respaldo, cada hora).
+Una persona puede tener ambos roles. Cada rol se exige en el panel **y en la base de datos
+(RLS)**: aunque alguien llamara directo a la API, sin el rol no puede leer ni modificar esos
+datos. Los administradores se crean como en [4.5](#45-crear-el-primer-administrador).
+
+### Entrar en local
+
+`pnpm dev`, abrir http://localhost:3000/admin e ingresar con **`admin@example.com`** /
+**`admin-local-12345`** (tiene ambos roles; solo existe en local). Para probar «¿Olvidaste tu
+contraseña?», el correo se ve en Mailpit (http://127.0.0.1:54324); el enlace apunta a
+`http://localhost:3000` (`site_url` de `supabase/config.toml`).
+
+### Contraseñas
+
+- Cada administrador la cambia en **Mi cuenta** (`/admin/cuenta`): pide la actual y, al
+  guardar, cierra la sesión en sus otros dispositivos.
+- Si alguien la **olvidó**, usa **«¿Olvidaste tu contraseña?»** en la página de ingreso:
+  recibe un enlace (vence en 1 hora, sirve una sola vez), elige una nueva y se cierran sus
+  sesiones en todos los dispositivos. Requiere los pasos 3 a 5 de
+  [4.4](#44-configurar-supabase-auth).
+- Último recurso (si el correo no llega): en el SQL Editor se le asigna una contraseña
+  temporal (Supabase la guarda cifrada con bcrypt) y la persona la cambia en Mi cuenta:
+  ```sql
+  update auth.users
+  set encrypted_password = extensions.crypt('<NUEVA_CONTRASEÑA>', extensions.gen_salt('bf'))
+  where email = 'persona@dominio.cl';
+  ```
+
+### Capas de seguridad del acceso
+
+| Capa                                                                   | Protege contra                              |
+| ---------------------------------------------------------------------- | ------------------------------------------- |
+| Registro público deshabilitado                                         | Que cualquiera cree una cuenta              |
+| Contraseñas de 12 caracteres o más                                     | Contraseñas fáciles de adivinar             |
+| Rate limit: 10 intentos por hora por IP                                | Probar contraseñas por fuerza bruta         |
+| CAPTCHA (Turnstile) opcional, verificado por Supabase                  | Intentos automatizados                      |
+| Mismo mensaje si el correo no existe o la contraseña es incorrecta     | Averiguar qué correos tienen cuenta         |
+| Rol en la tabla `admins`, verificado en cada página y acción, más RLS  | Cuentas sin rol de administrador            |
+| Roles `sitio` / `pacientes` exigidos por RLS                           | Ver o editar lo que no corresponde          |
+| Cookie de sesión `httpOnly`                                            | Robo de la sesión mediante XSS              |
+| Sesión verificada contra el servidor de Auth en cada página            | Seguir usando una sesión ya cerrada         |
+| Cambio de contraseña exige la actual y cierra los otros dispositivos   | Uso de un celular con sesión abierta        |
+| Recuperación: 5 solicitudes por hora por IP y misma respuesta siempre  | Envío masivo de correos y sondeo de cuentas |
+| Enlace de recuperación de un solo uso, vence en 1 hora                 | Reuso de un enlace viejo                    |
+| Abrir el enlace no lo gasta: se canjea recién al guardar la contraseña | Filtros de correo que abren enlaces         |
+| Al restablecer se cierran las sesiones en **todos** los dispositivos   | Que un intruso siga dentro                  |
+| Aviso por correo cada vez que cambia la contraseña                     | Cambios que la persona no hizo              |
+| `noindex` (metadata + cabecera `X-Robots-Tag`) y `robots.txt`          | Que el panel aparezca en buscadores         |
+
+### Agregar un módulo (agenda, inventario, pacientes)
+
+Crear su página en `src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a
+`requerirRol("pacientes")` (o el rol que corresponda) en ella y en sus servicios, proteger sus
+tablas con `tiene_rol(...)` en RLS, y cambiar `disponible: true` en
+[`src/config/admin.ts`](src/config/admin.ts).
+
+## 6. Dónde editar los textos del sitio
+
+**Desde el panel, en `/admin/sitio`** (rol `sitio`), sin volver a desplegar: nombre y
+descripción, WhatsApp y su mensaje, teléfono, correos, dirección, horario de visitas, mapa,
+portada, «Quiénes somos», fotos, servicios, «Por qué elegirnos», testimonios, preguntas
+frecuentes y datos de la política de privacidad. El índice del módulo muestra qué datos
+faltan.
+
+- Las secciones **sin contenido no se muestran** (sin fotos no hay galería, sin testimonios
+  no hay sección de testimonios, etc.), y los botones de contacto sin número tampoco.
+- **Horario de visitas:** se ingresa por tramos (días + desde/hasta, hasta 3 tramos; ej:
+  «Lunes a viernes, de 10:00 a 18:00»). Así se muestra en el sitio y Google lo entiende. La
+  «Aclaración» (texto libre) aparece debajo, para excepciones como festivos.
+- Las páginas públicas son **estáticas** (rápidas): al guardar en el panel se regeneran solas
+  en la siguiente visita (y, como respaldo, cada hora). Lo mismo el título, la descripción y
+  la imagen para compartir.
 - Las **fotos** se reducen en el navegador (máx. 1600 px, WebP) antes de subirse, lo que
   además les quita los metadatos con la ubicación GPS. Se guardan en el bucket `sitio` de
-  Supabase Storage: cualquiera puede verlas por su URL, pero solo el rol `sitio` puede subir o
-  borrar, y nadie puede listar el bucket.
-- [`src/config/site.ts`](src/config/site.ts) quedó solo con textos fijos de la interfaz
-  (títulos de secciones, botones y opciones del formulario).
+  Supabase Storage: cualquiera puede verlas por su URL, pero solo el rol `sitio` puede subir
+  o borrar, y nadie puede listar el bucket.
+- En el código solo quedan textos fijos de la interfaz (títulos de secciones, botones y
+  opciones del formulario): [`src/config/site.ts`](src/config/site.ts). Los textos del texto
+  legal base están en [`src/app/(publico)/privacidad/page.tsx`](<src/app/(publico)/privacidad/page.tsx>).
 
-### Aplicar este cambio en producción
+## 7. SEO
 
-1. `corepack pnpm db:push`: crea las tablas de contenido, los roles y el bucket de fotos.
-   Los administradores que ya existían reciben **ambos roles** automáticamente.
-2. Hacer commit y push (Vercel despliega).
-3. Entrar a `/admin/sitio` y completar la información: el sitio parte con el nombre
-   genérico «Hogar de reposo» y las secciones vacías ocultas.
+Todo se arma con el contenido del panel; no hay datos del negocio escritos en el código.
+
+| Qué                                                                                  | Dónde                                                                                     |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Título «Nombre \| Hogar de reposo en [ciudad]», descripción (la «Descripción breve») | [`src/lib/seo.ts`](src/lib/seo.ts), [`src/app/layout.tsx`](src/app/layout.tsx)            |
+| Open Graph y Twitter: vista previa al compartir en WhatsApp y redes                  | Imagen generada con nombre, descripción y ciudad: `src/app/(publico)/opengraph-image.tsx` |
+| URL canónica por página (evita duplicados con la URL de Vercel)                      | `alternates.canonical` en cada página                                                     |
+| Datos estructurados JSON-LD `LocalBusiness`: dirección, teléfono, correo y horario   | `datosEstructuradosNegocio()` en `src/lib/seo.ts`                                         |
+| `/sitemap.xml` y `/robots.txt` (bloquea `/admin` y `/api/`)                          | `src/app/sitemap.ts`, `src/app/robots.ts`                                                 |
+| Favicon (`icon.svg`) e ícono para iPhone (`apple-icon`)                              | `src/app/`                                                                                |
+
+Para que Google muestre bien el sitio: completa en el panel la **descripción breve**, la
+**ciudad**, la **dirección**, el **teléfono** y el **horario por tramos**, y sigue
+[4.8](#48-google-search-console-y-ficha-del-negocio).
+
+## 8. Formulario de contacto: capas de seguridad
+
+Flujo: formulario → Server Action → Zod → honeypot → Turnstile → rate limit → `crear_lead`
+→ correo con Resend (se envía después de responder; si falla, el contacto igual queda
+guardado).
+
+| Capa                           | Protege contra                                                         |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| Validación Zod (cliente)       | Errores de tipeo; respuesta inmediata a la persona                     |
+| Validación Zod (servidor)      | Datos manipulados: el servidor es la fuente de verdad                  |
+| Honeypot (`sitio_web`)         | Bots simples (se les responde "éxito" sin guardar nada)                |
+| Cloudflare Turnstile           | Bots avanzados (el token se verifica en el servidor)                   |
+| Rate limit (5 por hora por IP) | Abuso desde una misma conexión (IP guardada solo como hash HMAC)       |
+| Secreto compartido en Vault    | Crear leads llamando directo a la API de Supabase con la clave pública |
+| Restricciones SQL + RLS        | Datos fuera de formato; lectura/edición por quien no es admin          |
+
+Además, en todo el sitio: cabeceras de seguridad (CSP, HSTS, `X-Frame-Options`,
+`nosniff`, `Referrer-Policy`, `Permissions-Policy`) definidas en
+[`next.config.ts`](next.config.ts).
+
+## 9. Checklist de seguridad antes de publicar
+
+**Base de datos (Supabase)**
+
+- [ ] `pnpm db:test` pasa en local (RLS y privilegios).
+- [ ] RLS activo en **todas** las tablas de producción. En el SQL Editor, esta consulta debe
+      devolver **0 filas**:
+  ```sql
+  select c.relname as tabla_sin_rls
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where c.relkind = 'r' and n.nspname = 'public' and not c.relrowsecurity;
+  ```
+- [ ] Advisors → **Security Advisor** sin errores.
+- [ ] `pnpm exec supabase migration list`: local y remoto coinciden.
+- [ ] El seed **no** está en producción: `select email from auth.users;` no muestra
+      `admin@example.com`.
+- [ ] El secreto `formulario_secreto` existe en Vault y coincide con
+      `SUPABASE_FORMULARIO_SECRETO` (enviar el formulario de prueba lo confirma).
+
+**Auth y panel**
+
+- [ ] Registro público deshabilitado; proveedor Email activo; mínimo 12 caracteres (4.4).
+- [ ] Site URL = dominio definitivo; plantilla **Reset Password** reemplazada; aviso
+      **Password changed** activo; SMTP de Resend configurado.
+- [ ] Probado en producción: ingresar, «¿Olvidaste tu contraseña?», y `/admin` sin sesión
+      redirige al login.
+- [ ] Cada administrador tiene solo los roles que necesita.
+
+**Claves y variables**
+
+- [ ] En Vercel solo hay claves **publicables** en variables `NEXT_PUBLIC_*`; no existe
+      `SUPABASE_SERVICE_ROLE_KEY` ni ninguna `sb_secret_...`.
+- [ ] `RATE_LIMIT_SALT` y `SUPABASE_FORMULARIO_SECRETO` generados para producción (no los de
+      `.env.example`), distintos entre sí y marcados como Sensitive.
+- [ ] Turnstile con claves **reales** (no las de prueba `1x000…`), activo en el sitio y en
+      Supabase — o desactivado a conciencia en ambos.
+- [ ] `.env.local` y `.env.production.local` nunca se suben al repositorio (están en
+      `.gitignore`).
+
+**Dominio y correo**
+
+- [ ] `https://dominio.cl` carga con candado y responde con `Strict-Transport-Security`
+      (`curl -I https://dominio.cl`).
+- [ ] Dominio verificado en Resend; el remitente del panel usa ese dominio; el aviso de un
+      contacto de prueba llega (revisar también spam).
+
+**Contenido y legal**
+
+- [ ] La política de privacidad fue **revisada por un abogado** (Ley 19.628 y Ley 21.719) y
+      sus datos están completos en el panel. Tras la revisión, quitar el aviso de borrador en
+      `src/app/(publico)/privacidad/page.tsx`.
+- [ ] Testimonios reales y con autorización de quien los entregó.
+
+**Cuentas y continuidad**
+
+- [ ] Verificación en dos pasos activa en GitHub, Vercel, Supabase, Resend, Cloudflare y
+      NIC Chile.
+- [ ] Respaldos: revisa en Supabase → Database → Backups qué incluye tu plan. Con datos
+      personales, conviene el plan Pro (respaldos diarios); el plan gratuito además pausa el
+      proyecto tras una semana sin actividad.
+
+## 10. Actualizar producción cuando cambia el código
+
+1. Si hay migraciones nuevas en `supabase/migrations/`, aplícalas **antes** de desplegar:
+   `pnpm db:push` (el código nuevo puede necesitar las columnas nuevas).
+2. Si el cambio lo indica, ajusta la configuración del Dashboard de Supabase (plantillas,
+   Auth) o las variables de Vercel.
+3. Commit y push a `master`: GitHub Actions revisa el código y Vercel despliega.

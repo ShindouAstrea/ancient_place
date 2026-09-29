@@ -42,6 +42,7 @@ const CONTENIDO_VACIO: ContenidoSitio = {
     direccion: "",
     ciudad: "",
     region: "",
+    horario_tramos: [],
     horario_visitas: "",
     maps_embed_url: "",
     maps_url: "",
@@ -102,12 +103,14 @@ export function camposPendientes(config: ConfiguracionSitio): string[] {
     ["telefono", "Teléfono para llamadas"],
     ["email_contacto", "Correo de contacto"],
     ["direccion", "Dirección"],
-    ["horario_visitas", "Horario de visitas"],
+    ["horario_tramos", "Días y horas de visita"],
     ["maps_embed_url", "Mapa de Google"],
     ["email_notificaciones", "Correo para los avisos de nuevos contactos"],
     ["razon_social", "Razón social (política de privacidad)"],
   ];
-  return revisar.filter(([campo]) => !String(config[campo] ?? "").trim()).map(([, e]) => e);
+  const vacio = (valor: unknown) =>
+    Array.isArray(valor) ? valor.length === 0 : !String(valor ?? "").trim();
+  return revisar.filter(([campo]) => vacio(config[campo])).map(([, e]) => e);
 }
 
 // -----------------------------------------------------------------------------

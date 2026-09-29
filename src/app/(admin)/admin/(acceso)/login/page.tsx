@@ -1,5 +1,6 @@
 import { CircleAlert, Info } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { FormularioAcceso } from "@/components/admin/formulario-acceso";
@@ -15,6 +16,11 @@ const AVISOS: Record<MotivoLogin, { tono: "info" | "error"; texto: string }> = {
   "sin-acceso": { tono: "error", texto: "Esta cuenta no tiene acceso al panel de administración." },
   "sesion-cerrada": { tono: "info", texto: "Cerraste sesión correctamente." },
   "sesion-requerida": { tono: "info", texto: "Tu sesión terminó. Ingresa nuevamente." },
+  "contrasena-restablecida": {
+    tono: "info",
+    texto:
+      "Listo: guardamos tu nueva contraseña y cerramos la sesión en todos tus dispositivos. Ingresa con ella.",
+  },
 };
 
 function esMotivo(valor: unknown): valor is MotivoLogin {
@@ -66,6 +72,14 @@ export default async function LoginPage({ searchParams }: Props) {
           <div className="mt-6">
             <FormularioAcceso />
           </div>
+          <p className="mt-4 text-center">
+            <Link
+              href="/admin/recuperar"
+              className="inline-flex min-h-11 items-center font-semibold text-salvia-800 underline-offset-4 hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </p>
         </>
       )}
     </Tarjeta>

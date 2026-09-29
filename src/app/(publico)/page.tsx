@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { Contacto } from "@/components/sections/contacto";
 import { Hero } from "@/components/sections/hero";
 import { Instalaciones } from "@/components/sections/instalaciones";
@@ -7,7 +9,12 @@ import { PreguntasFrecuentes } from "@/components/sections/preguntas-frecuentes"
 import { Servicios } from "@/components/sections/servicios";
 import { Testimonios } from "@/components/sections/testimonios";
 import { tieneUbicacion, Ubicacion } from "@/components/sections/ubicacion";
+import { JsonLd } from "@/components/ui/json-ld";
+import { datosEstructuradosNegocio } from "@/lib/seo";
 import { obtenerContenidoSitio } from "@/server/services/contenido";
+
+// Título, descripción y Open Graph: los del layout raíz.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 /** Landing. Las secciones sin contenido (ej: sin fotos o sin testimonios) no se muestran. */
 export default async function InicioPage() {
@@ -16,6 +23,7 @@ export default async function InicioPage() {
 
   return (
     <>
+      <JsonLd datos={datosEstructuradosNegocio(config)} />
       <Hero config={config} />
       {tieneNosotros(config) ? <Nosotros config={config} /> : null}
       {servicios.length > 0 ? (

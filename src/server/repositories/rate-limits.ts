@@ -5,8 +5,11 @@ import { crearClienteServidor } from "@/lib/supabase/server";
 
 import { ErrorRepositorio } from "./errores";
 
-/** Acciones con límite definidas en la función SQL `verificar_rate_limit` (contacto: 5/hora; login: 10/hora). */
-export type AccionLimitada = "contacto" | "login";
+/**
+ * Acciones con límite definidas en la función SQL `verificar_rate_limit`
+ * (contacto: 5/hora; login: 10/hora; recuperacion: 5/hora).
+ */
+export type AccionLimitada = "contacto" | "login" | "recuperacion";
 
 /**
  * Registra un intento y devuelve true si está dentro del límite.

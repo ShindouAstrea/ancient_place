@@ -64,6 +64,7 @@ export type Database = {
           hero_foto_ancho: number | null;
           hero_subtitulo: string;
           hero_titulo: string;
+          horario_tramos: NonNullable<Json>;
           horario_visitas: string;
           id: boolean;
           instalaciones_intro: string;
@@ -98,6 +99,7 @@ export type Database = {
           hero_foto_ancho?: number | null;
           hero_subtitulo?: string;
           hero_titulo?: string;
+          horario_tramos?: NonNullable<Json>;
           horario_visitas?: string;
           id?: boolean;
           instalaciones_intro?: string;
@@ -132,6 +134,7 @@ export type Database = {
           hero_foto_ancho?: number | null;
           hero_subtitulo?: string;
           hero_titulo?: string;
+          horario_tramos?: NonNullable<Json>;
           horario_visitas?: string;
           id?: boolean;
           instalaciones_intro?: string;
