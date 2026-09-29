@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TarjetaLead } from "@/components/admin/tarjeta-lead";
 import { clasesBoton } from "@/components/ui/boton";
 import { cn } from "@/lib/utils/cn";
+import { obtenerContenidoSitio } from "@/server/services/contenido";
 import { obtenerPaginaLeads } from "@/server/services/leads";
 import {
   ESTADOS_LEAD,
@@ -64,6 +65,7 @@ export default async function LeadsPage({ searchParams }: Props) {
   // Un filtro inválido en la URL se reemplaza por el valor por defecto (nunca falla).
   const filtro = esquemaFiltroLeads.parse(await searchParams);
   const { leads, conteo, pagina, totalPaginas } = await obtenerPaginaLeads(filtro);
+  const { config } = await obtenerContenidoSitio();
   const ahora = new Date();
 
   return (
@@ -114,7 +116,7 @@ export default async function LeadsPage({ searchParams }: Props) {
         <ul className="mt-6 space-y-4">
           {leads.map((lead) => (
             <li key={lead.id}>
-              <TarjetaLead lead={lead} ahora={ahora} />
+              <TarjetaLead lead={lead} ahora={ahora} nombreHogar={config.nombre} />
             </li>
           ))}
         </ul>

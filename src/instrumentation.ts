@@ -22,15 +22,5 @@ export async function register() {
           "por correo. Los contactos se guardan igual y se ven en /admin/leads.",
       );
     }
-
-    const { camposPendientes } = await import("@/config/site");
-    const pendientes = camposPendientes();
-    if (pendientes.length > 0) {
-      // Aviso (no error): textos con marcador "[...]" en src/config/site.ts.
-      console.warn(
-        `[site.ts] Hay ${pendientes.length} textos del negocio sin completar en src/config/site.ts ` +
-          `(por ejemplo: ${pendientes.slice(0, 4).join(", ")}).`,
-      );
-    }
   }
 }

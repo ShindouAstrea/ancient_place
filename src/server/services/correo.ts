@@ -1,6 +1,5 @@
 import "server-only";
 
-import { siteConfig } from "@/config/site";
 import { envPublico, envServidor } from "@/lib/env";
 import {
   enlaceTelefono,
@@ -10,6 +9,7 @@ import {
   mensajeRespuestaWhatsapp,
 } from "@/lib/utils/contacto";
 import { escaparHtml } from "@/lib/utils/html";
+import { leerConfiguracion } from "@/server/repositories/contenido";
 import type { DatosContacto } from "@/server/validators/contacto";
 
 const URL_RESEND = "https://api.resend.com/emails";
@@ -25,8 +25,15 @@ function fechaChile(fecha: Date) {
 }
 
 /** Plantilla simple con estilos en línea (los clientes de correo ignoran CSS externo). */
-export function plantillaNuevoLead(datos: DatosContacto, fecha = new Date()): CorreoNotificacion {
-  const whatsapp = enlaceWhatsapp(datos.telefono, mensajeRespuestaWhatsapp(datos.nombre));
+export function plantillaNuevoLead(
+  datos: DatosContacto,
+  nombreHogar: string,
+  fecha = new Date(),
+): CorreoNotificacion {
+  const whatsapp = enlaceWhatsapp(
+    datos.telefono,
+    mensajeRespuestaWhatsapp(datos.nombre, nombreHogar),
+  );
   const panel = `${envPublico.NEXT_PUBLIC_SITE_URL}/admin/leads`;
   const e = escaparHtml;
 
@@ -94,19 +101,24 @@ export function plantillaNuevoLead(datos: DatosContacto, fecha = new Date()): Co
   return { asunto, html, texto };
 }
 
+export type ResultadoAviso = "enviado" | "sin-resend" | "sin-destinatario";
+
 /**
- * Envía el aviso de un nuevo lead al correo de notificaciones.
- * Lanza un error si Resend no acepta el envío (el llamador decide qué hacer).
+ * Envía el aviso de un nuevo lead al correo de notificaciones (configurado en el panel).
+ * Si falta la API key de Resend o el destinatario/remitente, el aviso se omite (el lead
+ * ya está guardado). Lanza un error si Resend rechaza el envío.
  */
 export async function enviarNotificacionNuevoLead(
   leadId: string,
   datos: DatosContacto,
-): Promise<boolean> {
-  // Sin Resend configurado el aviso se omite (el lead ya está guardado).
+): Promise<ResultadoAviso> {
   const claveApi = envServidor().RESEND_API_KEY;
-  if (!claveApi) return false;
+  if (!claveApi) return "sin-resend";
 
-  const { asunto, html, texto } = plantillaNuevoLead(datos);
+  const config = await leerConfiguracion();
+  if (!config.email_notificaciones || !config.email_remitente) return "sin-destinatario";
+
+  const { asunto, html, texto } = plantillaNuevoLead(datos, config.nombre);
 
   const respuesta = await fetch(URL_RESEND, {
     method: "POST",
@@ -117,8 +129,8 @@ export async function enviarNotificacionNuevoLead(
       "Idempotency-Key": `lead-${leadId}`,
     },
     body: JSON.stringify({
-      from: siteConfig.notificaciones.remitente,
-      to: [siteConfig.notificaciones.destinatario],
+      from: config.email_remitente,
+      to: [config.email_notificaciones],
       reply_to: datos.email,
       subject: asunto,
       html,
@@ -132,5 +144,5 @@ export async function enviarNotificacionNuevoLead(
     // Solo el código HTTP: el cuerpo podría repetir direcciones de correo.
     throw new Error(`Resend rechazó el envío (HTTP ${respuesta.status})`);
   }
-  return true;
+  return "enviado";
 }

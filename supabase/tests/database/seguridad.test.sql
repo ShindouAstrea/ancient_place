@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(35);
+select plan(53);
 
 -- El test usa su propio secreto: reemplaza temporalmente el del seed (se revierte).
 delete from vault.secrets where name = 'formulario_secreto';
@@ -183,6 +183,8 @@ values ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-0000000
         'authenticated', 'authenticated', 'admin-test@example.com');
 insert into public.admins (user_id, email)
 values ('00000000-0000-4000-8000-0000000000aa', 'admin-test@example.com');
+insert into public.admin_roles (user_id, rol)
+values ('00000000-0000-4000-8000-0000000000aa', 'sitio');
 
 set local role authenticated;
 select set_config(
@@ -211,6 +213,104 @@ select throws_ok(
   '42501', null,
   'admin: NO puede modificar la tabla admins desde la aplicación'
 );
+select throws_ok(
+  $$ insert into public.admin_roles (user_id, rol)
+     values ('00000000-0000-4000-8000-0000000000aa', 'pacientes') $$,
+  '42501', null,
+  'admin: NO puede darse roles a sí mismo desde la aplicación'
+);
+
+-- Rol "sitio": edita el contenido del sitio.
+select lives_ok(
+  $$ update public.configuracion_sitio set nombre = 'Nombre de prueba' $$,
+  'rol sitio: puede editar la configuración del sitio'
+);
+select lives_ok(
+  $$ insert into public.testimonios (texto, autor) values ('Muy buen trato', 'Prueba') $$,
+  'rol sitio: puede agregar testimonios'
+);
+select lives_ok(
+  $$ delete from public.testimonios where autor = 'Prueba' $$,
+  'rol sitio: puede borrar testimonios'
+);
+select throws_ok(
+  $$ update public.configuracion_sitio set id = false $$,
+  '42501', null,
+  'rol sitio: NO puede cambiar el id de la fila única de configuración'
+);
+select throws_ok(
+  $$ delete from public.configuracion_sitio $$,
+  '42501', null,
+  'rol sitio: NO puede borrar la configuración'
+);
+
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- Administrador SOLO con rol "pacientes": no ve contactos ni edita el sitio.
+-- -----------------------------------------------------------------------------
+insert into auth.users (instance_id, id, aud, role, email)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-4000-8000-0000000000cc',
+        'authenticated', 'authenticated', 'clinico-test@example.com');
+insert into public.admins (user_id, email)
+values ('00000000-0000-4000-8000-0000000000cc', 'clinico-test@example.com');
+insert into public.admin_roles (user_id, rol)
+values ('00000000-0000-4000-8000-0000000000cc', 'pacientes');
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-0000000000cc","role":"authenticated"}',
+  true
+);
+
+select ok(public.is_admin(), 'rol pacientes: es administrador (entra al panel)');
+select is(public.tiene_rol('sitio'), false, 'rol pacientes: NO tiene el rol sitio');
+select is((select count(*)::int from public.leads), 0, 'rol pacientes: NO ve contactos');
+select is_empty(
+  $$ update public.leads set estado = 'descartado' returning id $$,
+  'rol pacientes: NO puede cambiar el estado de contactos'
+);
+select is_empty(
+  $$ update public.configuracion_sitio set nombre = 'Intruso' returning id $$,
+  'rol pacientes: NO puede editar la configuración del sitio'
+);
+select throws_ok(
+  $$ insert into public.testimonios (texto, autor) values ('Falso', 'Intruso') $$,
+  '42501', null,
+  'rol pacientes: NO puede agregar testimonios'
+);
+select is(
+  (select array_agg(rol::text) from public.admin_roles),
+  array['pacientes'],
+  'rol pacientes: solo ve sus propios roles'
+);
+
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- Visitante anónimo: lee el contenido público, no puede modificarlo.
+-- -----------------------------------------------------------------------------
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+
+select is(
+  (select nombre from public.configuracion_sitio),
+  'Nombre de prueba',
+  'anon: puede leer la configuración del sitio'
+);
+select lives_ok($$ select * from public.preguntas_frecuentes $$, 'anon: puede leer las preguntas frecuentes');
+select throws_ok(
+  $$ update public.configuracion_sitio set nombre = 'Hackeado' $$,
+  '42501', null,
+  'anon: NO puede editar la configuración del sitio'
+);
+select throws_ok(
+  $$ insert into public.testimonios (texto, autor) values ('Falso', 'Anónimo') $$,
+  '42501', null,
+  'anon: NO puede agregar testimonios'
+);
+select throws_ok($$ select * from public.admin_roles $$, '42501', null, 'anon: NO puede leer roles');
 
 reset role;
 

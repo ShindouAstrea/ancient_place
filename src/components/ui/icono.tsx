@@ -1,11 +1,17 @@
 import {
   Activity,
+  BedDouble,
+  Clock,
+  Flower2,
   HeartHandshake,
   HeartPulse,
   House,
   Leaf,
+  Music,
   Palette,
+  Pill,
   ShieldCheck,
+  Smile,
   Sparkles,
   Stethoscope,
   Sun,
@@ -15,7 +21,7 @@ import {
   type LucideProps,
 } from "lucide-react";
 
-import type { NombreIcono } from "@/config/site";
+import { esNombreIcono, type NombreIcono } from "@/config/iconos";
 
 /**
  * Mapa explícito de íconos: importar solo los usados mantiene el bundle pequeño
@@ -23,12 +29,18 @@ import type { NombreIcono } from "@/config/site";
  */
 const iconos: Record<NombreIcono, LucideIcon> = {
   Activity,
+  BedDouble,
+  Clock,
+  Flower2,
   HeartHandshake,
   HeartPulse,
   House,
   Leaf,
+  Music,
   Palette,
+  Pill,
   ShieldCheck,
+  Smile,
   Sparkles,
   Stethoscope,
   Sun,
@@ -36,8 +48,8 @@ const iconos: Record<NombreIcono, LucideIcon> = {
   Utensils,
 };
 
-/** Ícono decorativo definido por nombre en site.ts. */
-export function Icono({ nombre, ...props }: LucideProps & { nombre: NombreIcono }) {
-  const Componente = iconos[nombre];
+/** Ícono decorativo por nombre. Un nombre desconocido muestra el ícono por defecto. */
+export function Icono({ nombre, ...props }: LucideProps & { nombre: string }) {
+  const Componente = iconos[esNombreIcono(nombre) ? nombre : "HeartHandshake"];
   return <Componente aria-hidden="true" focusable="false" {...props} />;
 }

@@ -3,6 +3,7 @@ import { Lora, Nunito_Sans } from "next/font/google";
 
 import { siteConfig } from "@/config/site";
 import { envPublico } from "@/lib/env";
+import { obtenerContenidoSitio } from "@/server/services/contenido";
 
 import "./globals.css";
 
@@ -21,14 +22,15 @@ const fuenteTitulos = Lora({
   variable: "--font-lora",
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(envPublico.NEXT_PUBLIC_SITE_URL),
-  title: {
-    default: siteConfig.nombre,
-    template: `%s | ${siteConfig.nombre}`,
-  },
-  description: siteConfig.descripcionCorta,
-};
+/** Título y descripción vienen del contenido editable desde el panel. */
+export async function generateMetadata(): Promise<Metadata> {
+  const { config } = await obtenerContenidoSitio();
+  return {
+    metadataBase: new URL(envPublico.NEXT_PUBLIC_SITE_URL),
+    title: { default: config.nombre, template: `%s | ${config.nombre}` },
+    description: config.descripcion_corta || undefined,
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#fbf7f0",

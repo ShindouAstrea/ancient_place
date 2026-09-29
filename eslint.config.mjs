@@ -14,6 +14,11 @@ export default defineConfig([
       // solo se permiten console.warn/error, y deben usarse sin datos del usuario.
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "@typescript-eslint/consistent-type-imports": "error",
+      // Permite excluir propiedades con desestructuración: const { id, ...resto } = fila.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { ignoreRestSiblings: true, argsIgnorePattern: "^_" },
+      ],
     },
   },
   {

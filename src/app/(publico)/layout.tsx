@@ -1,9 +1,19 @@
 import { Footer } from "@/components/sections/footer";
 import { Header } from "@/components/sections/header";
 import { WhatsappFlotante } from "@/components/sections/whatsapp-flotante";
+import { obtenerContenidoSitio } from "@/server/services/contenido";
+
+/**
+ * Páginas públicas ESTÁTICAS (rápidas y cacheables). Se regeneran solas:
+ * - al guardar cambios en el panel (revalidatePath en server/services/contenido.ts);
+ * - y, como respaldo, cada hora.
+ */
+export const revalidate = 3600;
 
 /** Layout de las páginas públicas: header, contenido, footer y WhatsApp flotante. */
-export default function PublicoLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function PublicoLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const contenido = await obtenerContenidoSitio();
+
   return (
     <>
       {/* Permite a usuarios de teclado saltar directamente al contenido. */}
@@ -13,12 +23,12 @@ export default function PublicoLayout({ children }: Readonly<{ children: React.R
       >
         Saltar al contenido
       </a>
-      <Header />
+      <Header contenido={contenido} />
       <main id="contenido" tabIndex={-1} className="outline-none">
         {children}
       </main>
-      <Footer />
-      <WhatsappFlotante />
+      <Footer config={contenido.config} />
+      <WhatsappFlotante config={contenido.config} />
     </>
   );
 }

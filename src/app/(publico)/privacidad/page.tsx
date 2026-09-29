@@ -1,13 +1,20 @@
 import { TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 
-import { siteConfig } from "@/config/site";
+import { direccionCompleta } from "@/components/sections/ubicacion";
 import { Contenedor } from "@/components/ui/seccion";
+import { obtenerContenidoSitio } from "@/server/services/contenido";
 
-export const metadata: Metadata = {
-  title: "Política de privacidad",
-  description: `Cómo ${siteConfig.nombre} trata los datos personales de quienes nos contactan.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { config } = await obtenerContenidoSitio();
+  return {
+    title: "Política de privacidad",
+    description: `Cómo ${config.nombre} trata los datos personales de quienes nos contactan.`,
+  };
+}
+
+/** Dato legal editable desde el panel; si falta, queda marcado como pendiente. */
+const dato = (valor: string) => valor || "[por completar en el panel]";
 
 /*
  * ⚠️ BORRADOR BASE. Este texto NO constituye asesoría legal y DEBE ser revisado y
@@ -24,17 +31,15 @@ function Apartado({ titulo, children }: { titulo: string; children: React.ReactN
   );
 }
 
-export default function PrivacidadPage() {
-  const { legal, contacto, ubicacion } = siteConfig;
+export default async function PrivacidadPage() {
+  const { config } = await obtenerContenidoSitio();
 
   return (
     <Contenedor className="py-12 sm:py-16">
       <article className="mx-auto max-w-3xl space-y-8">
         <header className="space-y-4">
           <h1 className="text-4xl font-semibold">Política de privacidad</h1>
-          <p className="text-tinta-suave">
-            Última actualización: {legal.fechaActualizacionPrivacidad}
-          </p>
+          <p className="text-tinta-suave">Última actualización: {dato(config.fecha_privacidad)}</p>
           <div
             role="note"
             className="flex gap-3 rounded-2xl border-2 border-terracota bg-white p-5 text-base"
@@ -49,15 +54,15 @@ export default function PrivacidadPage() {
 
         <Apartado titulo="1. Responsable del tratamiento">
           <p>
-            {legal.razonSocial}, RUT {legal.rut}, con domicilio en {ubicacion.direccion},{" "}
-            {ubicacion.ciudad}, {ubicacion.region}, Chile (en adelante, &quot;{siteConfig.nombre}
+            {dato(config.razon_social)}, RUT {dato(config.rut)}, con domicilio en{" "}
+            {dato(direccionCompleta(config))}, Chile (en adelante, &quot;{config.nombre}
             &quot;), es responsable del tratamiento de los datos personales recopilados a través de
             este sitio web.
           </p>
           <p>
             Para cualquier consulta sobre esta política o sobre tus datos, escríbenos a{" "}
-            <a href={`mailto:${legal.emailPrivacidad}`} className="font-semibold underline">
-              {legal.emailPrivacidad}
+            <a href={`mailto:${config.email_privacidad}`} className="font-semibold underline">
+              {dato(config.email_privacidad)}
             </a>
             .
           </p>
@@ -131,7 +136,7 @@ export default function PrivacidadPage() {
         <Apartado titulo="6. Cuánto tiempo conservamos tus datos">
           <p>
             Conservamos los datos de las solicitudes de contacto durante{" "}
-            {legal.plazoConservacionLeads}. Luego los eliminamos o anonimizamos, salvo que exista
+            {dato(config.plazo_conservacion)}. Luego los eliminamos o anonimizamos, salvo que exista
             una obligación legal de conservarlos.
           </p>
         </Apartado>
@@ -141,11 +146,11 @@ export default function PrivacidadPage() {
             Puedes solicitar en cualquier momento el acceso, la rectificación, la supresión o la
             portabilidad de tus datos, oponerte a su tratamiento o pedir su bloqueo. Para ello,
             escríbenos a{" "}
-            <a href={`mailto:${legal.emailPrivacidad}`} className="font-semibold underline">
-              {legal.emailPrivacidad}
+            <a href={`mailto:${config.email_privacidad}`} className="font-semibold underline">
+              {dato(config.email_privacidad)}
             </a>{" "}
             indicando tu nombre y la solicitud. Responderemos dentro de{" "}
-            {legal.plazoRespuestaSolicitudes}.
+            {dato(config.plazo_respuesta)}.
           </p>
           <p>
             Si consideras que no hemos atendido adecuadamente tu solicitud, puedes recurrir a la
@@ -177,7 +182,7 @@ export default function PrivacidadPage() {
         </Apartado>
 
         <p className="border-t border-salvia-200 pt-6 text-base text-tinta-suave">
-          Contacto general: {contacto.email}
+          Contacto general: {dato(config.email_contacto)}
         </p>
       </article>
     </Contenedor>

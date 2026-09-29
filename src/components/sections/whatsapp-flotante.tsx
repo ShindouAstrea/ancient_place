@@ -1,15 +1,16 @@
-import { siteConfig } from "@/config/site";
 import { IconoWhatsapp } from "@/components/ui/icono-whatsapp";
 import { enlaceWhatsapp } from "@/lib/utils/contacto";
+import type { ConfiguracionSitio } from "@/types/contenido";
 
-/** Botón flotante de WhatsApp, visible en todas las páginas públicas. */
-export function WhatsappFlotante() {
-  const { contacto } = siteConfig;
+/** Botón flotante de WhatsApp, visible en todas las páginas públicas (si hay número). */
+export function WhatsappFlotante({ config }: { config: ConfiguracionSitio }) {
+  if (!config.whatsapp) return null;
+
   return (
     // <aside> con etiqueta: todo el contenido queda dentro de una región identificable.
     <aside aria-label="Contacto rápido">
       <a
-        href={enlaceWhatsapp(contacto.whatsapp, contacto.mensajeWhatsappPorDefecto)}
+        href={enlaceWhatsapp(config.whatsapp, config.mensaje_whatsapp)}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Escríbenos por WhatsApp (se abre en una pestaña nueva)"

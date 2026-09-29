@@ -1,9 +1,11 @@
 import { Leaf } from "lucide-react";
 
-import { siteConfig } from "@/config/site";
+import { obtenerContenidoSitio } from "@/server/services/contenido";
 
 /** Páginas de acceso (sin sesión): tarjeta centrada, cómoda en el celular. */
-export default function AccesoLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function AccesoLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const { config } = await obtenerContenidoSitio();
+
   return (
     <main
       id="contenido"
@@ -11,7 +13,7 @@ export default function AccesoLayout({ children }: Readonly<{ children: React.Re
     >
       <p className="mb-6 flex items-center gap-2 font-serif text-xl font-semibold text-salvia-800">
         <Leaf className="size-7 shrink-0" aria-hidden="true" />
-        {siteConfig.nombre}
+        {config.nombre}
       </p>
       {children}
     </main>

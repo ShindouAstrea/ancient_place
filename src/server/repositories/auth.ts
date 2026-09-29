@@ -1,11 +1,14 @@
 import "server-only";
 
 import { crearClienteServidor } from "@/lib/supabase/server";
-import { crearClienteVerificacion } from "@/lib/supabase/verificacion";
+import { crearClienteSinSesion } from "@/lib/supabase/sin-sesion";
+import type { Database } from "@/types/database";
 
 import { ErrorRepositorio } from "./errores";
 
-export type Administrador = { id: string; email: string };
+export type RolAdmin = Database["public"]["Enums"]["rol_admin"];
+
+export type Administrador = { id: string; email: string; roles: RolAdmin[] };
 
 /** Sesión actual: sin sesión, con sesión de administrador o con sesión sin ese rol. */
 export type SesionActual = { activa: false } | { activa: true; admin: Administrador | null };
@@ -28,10 +31,15 @@ export async function obtenerSesionActual(): Promise<SesionActual> {
 
   const { data: esAdmin, error: errorRol } = await supabase.rpc("is_admin");
   if (errorRol) throw new ErrorRepositorio("is_admin", errorRol.code);
+  if (!esAdmin) return { activa: true, admin: null };
+
+  // RLS solo deja ver los roles propios.
+  const { data: roles, error: errorRoles } = await supabase.from("admin_roles").select("rol");
+  if (errorRoles) throw new ErrorRepositorio("admin_roles", errorRoles.code);
 
   return {
     activa: true,
-    admin: esAdmin ? { id: usuario.id, email: usuario.email ?? "" } : null,
+    admin: { id: usuario.id, email: usuario.email ?? "", roles: roles.map((r) => r.rol) },
   };
 }
 
@@ -125,7 +133,7 @@ export async function cambiarContrasena(
   const email = data?.claims?.email;
   if (typeof email !== "string" || !email) return { tipo: "sin-sesion" };
 
-  const verificador = crearClienteVerificacion();
+  const verificador = crearClienteSinSesion();
   const { error: errorActual } = await verificador.auth.signInWithPassword({
     email,
     password: actual,

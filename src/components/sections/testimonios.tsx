@@ -1,27 +1,29 @@
 import { Quote } from "lucide-react";
 
-import { siteConfig, type Testimonio } from "@/config/site";
+import { siteConfig } from "@/config/site";
 import { Seccion } from "@/components/ui/seccion";
 import { Tarjeta } from "@/components/ui/tarjeta";
+import type { Testimonio } from "@/types/contenido";
 
-/** Solo se muestra si hay testimonios en site.ts (deben ser reales y autorizados). */
-export function Testimonios() {
-  const { testimonios } = siteConfig;
-  const lista: readonly Testimonio[] = testimonios.lista;
-  if (lista.length === 0) return null;
-
+/**
+ * Testimonios. Deben ser reales y contar con autorización de quien los entrega:
+ * inventarlos puede constituir publicidad engañosa (se recuerda en el panel).
+ */
+export function Testimonios({ testimonios }: { testimonios: Testimonio[] }) {
   return (
-    <Seccion id="testimonios" titulo={testimonios.titulo}>
+    <Seccion id="testimonios" titulo={siteConfig.titulos.testimonios}>
       <ul className="grid gap-5 md:grid-cols-2">
-        {lista.map((t) => (
-          <li key={t.texto}>
+        {testimonios.map((t) => (
+          <li key={t.id}>
             <Tarjeta className="h-full">
               <figure className="flex h-full flex-col">
                 <Quote className="mb-3 size-8 text-terracota" aria-hidden="true" />
-                <blockquote className="flex-1 text-lg italic">{t.texto}</blockquote>
+                <blockquote className="flex-1 text-lg whitespace-pre-line italic">
+                  {t.texto}
+                </blockquote>
                 <figcaption className="mt-4 text-base">
                   <span className="font-semibold">{t.autor}</span>
-                  <span className="text-tinta-suave">, {t.relacion}</span>
+                  {t.relacion ? <span className="text-tinta-suave">, {t.relacion}</span> : null}
                 </figcaption>
               </figure>
             </Tarjeta>

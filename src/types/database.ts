@@ -3,6 +3,32 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      admin_roles: {
+        Row: {
+          created_at: string;
+          rol: Database["public"]["Enums"]["rol_admin"];
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          rol: Database["public"]["Enums"]["rol_admin"];
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          rol?: Database["public"]["Enums"]["rol_admin"];
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "admin_roles_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "admins";
+            referencedColumns: ["user_id"];
+          },
+        ];
+      };
       admins: {
         Row: {
           created_at: string;
@@ -18,6 +44,144 @@ export type Database = {
           created_at?: string;
           email?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      configuracion_sitio: {
+        Row: {
+          ciudad: string;
+          descripcion_corta: string;
+          destacados: NonNullable<Json>;
+          direccion: string;
+          email_contacto: string;
+          email_notificaciones: string;
+          email_privacidad: string;
+          email_remitente: string;
+          fecha_privacidad: string;
+          hero_foto: string | null;
+          hero_foto_alt: string;
+          hero_foto_alto: number | null;
+          hero_foto_ancho: number | null;
+          hero_subtitulo: string;
+          hero_titulo: string;
+          horario_visitas: string;
+          id: boolean;
+          instalaciones_intro: string;
+          maps_embed_url: string;
+          maps_url: string;
+          mensaje_whatsapp: string;
+          nombre: string;
+          nosotros_texto: string;
+          plazo_conservacion: string;
+          plazo_respuesta: string;
+          razon_social: string;
+          region: string;
+          rut: string;
+          servicios_intro: string;
+          telefono: string;
+          updated_at: string;
+          whatsapp: string;
+        };
+        Insert: {
+          ciudad?: string;
+          descripcion_corta?: string;
+          destacados?: NonNullable<Json>;
+          direccion?: string;
+          email_contacto?: string;
+          email_notificaciones?: string;
+          email_privacidad?: string;
+          email_remitente?: string;
+          fecha_privacidad?: string;
+          hero_foto?: string | null;
+          hero_foto_alt?: string;
+          hero_foto_alto?: number | null;
+          hero_foto_ancho?: number | null;
+          hero_subtitulo?: string;
+          hero_titulo?: string;
+          horario_visitas?: string;
+          id?: boolean;
+          instalaciones_intro?: string;
+          maps_embed_url?: string;
+          maps_url?: string;
+          mensaje_whatsapp?: string;
+          nombre?: string;
+          nosotros_texto?: string;
+          plazo_conservacion?: string;
+          plazo_respuesta?: string;
+          razon_social?: string;
+          region?: string;
+          rut?: string;
+          servicios_intro?: string;
+          telefono?: string;
+          updated_at?: string;
+          whatsapp?: string;
+        };
+        Update: {
+          ciudad?: string;
+          descripcion_corta?: string;
+          destacados?: NonNullable<Json>;
+          direccion?: string;
+          email_contacto?: string;
+          email_notificaciones?: string;
+          email_privacidad?: string;
+          email_remitente?: string;
+          fecha_privacidad?: string;
+          hero_foto?: string | null;
+          hero_foto_alt?: string;
+          hero_foto_alto?: number | null;
+          hero_foto_ancho?: number | null;
+          hero_subtitulo?: string;
+          hero_titulo?: string;
+          horario_visitas?: string;
+          id?: boolean;
+          instalaciones_intro?: string;
+          maps_embed_url?: string;
+          maps_url?: string;
+          mensaje_whatsapp?: string;
+          nombre?: string;
+          nosotros_texto?: string;
+          plazo_conservacion?: string;
+          plazo_respuesta?: string;
+          razon_social?: string;
+          region?: string;
+          rut?: string;
+          servicios_intro?: string;
+          telefono?: string;
+          updated_at?: string;
+          whatsapp?: string;
+        };
+        Relationships: [];
+      };
+      fotos: {
+        Row: {
+          alt: string;
+          alto: number;
+          ancho: number;
+          created_at: string;
+          id: string;
+          orden: number;
+          ruta: string;
+          updated_at: string;
+        };
+        Insert: {
+          alt: string;
+          alto: number;
+          ancho: number;
+          created_at?: string;
+          id?: string;
+          orden?: number;
+          ruta: string;
+          updated_at?: string;
+        };
+        Update: {
+          alt?: string;
+          alto?: number;
+          ancho?: number;
+          created_at?: string;
+          id?: string;
+          orden?: number;
+          ruta?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -63,6 +227,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      preguntas_frecuentes: {
+        Row: {
+          created_at: string;
+          id: string;
+          orden: number;
+          pregunta: string;
+          respuesta: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          orden?: number;
+          pregunta: string;
+          respuesta: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          orden?: number;
+          pregunta?: string;
+          respuesta?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       rate_limits: {
         Row: {
           accion: string;
@@ -84,6 +275,96 @@ export type Database = {
         };
         Relationships: [];
       };
+      razones: {
+        Row: {
+          created_at: string;
+          descripcion: string;
+          icono: string;
+          id: string;
+          orden: number;
+          titulo: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          descripcion?: string;
+          icono?: string;
+          id?: string;
+          orden?: number;
+          titulo: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          descripcion?: string;
+          icono?: string;
+          id?: string;
+          orden?: number;
+          titulo?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      servicios: {
+        Row: {
+          created_at: string;
+          descripcion: string;
+          icono: string;
+          id: string;
+          orden: number;
+          titulo: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          descripcion?: string;
+          icono?: string;
+          id?: string;
+          orden?: number;
+          titulo: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          descripcion?: string;
+          icono?: string;
+          id?: string;
+          orden?: number;
+          titulo?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      testimonios: {
+        Row: {
+          autor: string;
+          created_at: string;
+          id: string;
+          orden: number;
+          relacion: string;
+          texto: string;
+          updated_at: string;
+        };
+        Insert: {
+          autor: string;
+          created_at?: string;
+          id?: string;
+          orden?: number;
+          relacion?: string;
+          texto: string;
+          updated_at?: string;
+        };
+        Update: {
+          autor?: string;
+          created_at?: string;
+          id?: string;
+          orden?: number;
+          relacion?: string;
+          texto?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -102,6 +383,7 @@ export type Database = {
         Returns: string;
       };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      tiene_rol: { Args: { p_rol: Database["public"]["Enums"]["rol_admin"] }; Returns: boolean };
       verificar_rate_limit: {
         Args: { p_accion: string; p_ip_hash: string; p_secreto: string };
         Returns: boolean;
@@ -109,6 +391,7 @@ export type Database = {
     };
     Enums: {
       estado_lead: "nuevo" | "contactado" | "descartado";
+      rol_admin: "sitio" | "pacientes";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -221,6 +504,7 @@ export const Constants = {
   public: {
     Enums: {
       estado_lead: ["nuevo", "contactado", "descartado"],
+      rol_admin: ["sitio", "pacientes"],
     },
   },
 } as const;

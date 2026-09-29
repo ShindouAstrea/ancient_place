@@ -45,10 +45,14 @@ export async function procesarSolicitudContacto(
   // Resend. En Vercel la función se mantiene viva hasta terminar (waitUntil).
   after(async () => {
     try {
-      const enviado = await enviarNotificacionNuevoLead(leadId, datos);
-      if (!enviado) {
+      const resultado = await enviarNotificacionNuevoLead(leadId, datos);
+      if (resultado === "sin-resend") {
         console.warn(
           `[contacto] Lead ${leadId} guardado. Aviso por correo omitido: RESEND_API_KEY no está configurada.`,
+        );
+      } else if (resultado === "sin-destinatario") {
+        console.warn(
+          `[contacto] Lead ${leadId} guardado. Aviso por correo omitido: falta el correo de avisos o el remitente (panel → Sitio web → Información).`,
         );
       }
     } catch (error) {

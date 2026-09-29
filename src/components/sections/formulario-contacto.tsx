@@ -11,13 +11,11 @@ import {
   type FormEvent,
 } from "react";
 
-import { siteConfig } from "@/config/site";
 import { Boton, BotonEnlace } from "@/components/ui/boton";
 import { CampoAreaTexto, CampoCasilla, CampoSeleccion, CampoTexto } from "@/components/ui/campo";
 import { IconoWhatsapp } from "@/components/ui/icono-whatsapp";
 import { Turnstile } from "@/components/ui/turnstile";
 import { captcha } from "@/lib/env";
-import { enlaceWhatsapp } from "@/lib/utils/contacto";
 import { enviarContacto } from "@/server/actions/contacto";
 import {
   CAMPO_TRAMPA,
@@ -40,11 +38,6 @@ const ORDEN_CAMPOS: CampoContacto[] = [
 
 const ESTADO_INICIAL: EstadoFormularioContacto = { estado: "inicial" };
 
-const enlaceWhatsappHogar = enlaceWhatsapp(
-  siteConfig.contacto.whatsapp,
-  siteConfig.contacto.mensajeWhatsappPorDefecto,
-);
-
 function enfocarPrimerError(errores: ErroresContacto) {
   const campo = ORDEN_CAMPOS.find((c) => errores[c]);
   if (campo) document.getElementById(campo)?.focus();
@@ -54,12 +47,20 @@ function enfocarPrimerError(errores: ErroresContacto) {
  * Formulario de contacto. "Enviar otra consulta" vuelve a montar el formulario
  * (cambiando su key) para empezar desde cero con un estado limpio.
  */
-export function FormularioContacto({ parentescos }: { parentescos: readonly string[] }) {
+export function FormularioContacto({
+  parentescos,
+  enlaceWhatsappHogar,
+}: {
+  parentescos: readonly string[];
+  /** Enlace de WhatsApp del hogar, o null si aún no está configurado. */
+  enlaceWhatsappHogar: string | null;
+}) {
   const [instancia, setInstancia] = useState(0);
   return (
     <FormularioInterno
       key={instancia}
       parentescos={parentescos}
+      enlaceWhatsappHogar={enlaceWhatsappHogar}
       onReiniciar={() => setInstancia((n) => n + 1)}
     />
   );
@@ -67,9 +68,11 @@ export function FormularioContacto({ parentescos }: { parentescos: readonly stri
 
 function FormularioInterno({
   parentescos,
+  enlaceWhatsappHogar,
   onReiniciar,
 }: {
   parentescos: readonly string[];
+  enlaceWhatsappHogar: string | null;
   onReiniciar: () => void;
 }) {
   const [estado, accion, enviando] = useActionState(enviarContacto, ESTADO_INICIAL);
@@ -162,14 +165,18 @@ function FormularioInterno({
           ¡Gracias! Recibimos tu solicitud
         </h3>
         <p>
-          Te contactaremos a la brevedad por teléfono, WhatsApp o correo. Si tu consulta es urgente,
-          escríbenos directamente por WhatsApp.
+          Te contactaremos a la brevedad por teléfono, WhatsApp o correo.
+          {enlaceWhatsappHogar
+            ? " Si tu consulta es urgente, escríbenos directamente por WhatsApp."
+            : null}
         </p>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <BotonEnlace href={enlaceWhatsappHogar} externo variante="whatsapp">
-            <IconoWhatsapp className="size-5" />
-            Escribir por WhatsApp
-          </BotonEnlace>
+          {enlaceWhatsappHogar ? (
+            <BotonEnlace href={enlaceWhatsappHogar} externo variante="whatsapp">
+              <IconoWhatsapp className="size-5" />
+              Escribir por WhatsApp
+            </BotonEnlace>
+          ) : null}
           <Boton variante="secundario" onClick={onReiniciar}>
             <RotateCcw className="size-5" aria-hidden="true" />
             Enviar otra consulta
@@ -276,7 +283,10 @@ function FormularioInterno({
             <CircleAlert className="mt-0.5 size-5 shrink-0 text-terracota" aria-hidden="true" />
             <p>
               {mensajeGeneral}{" "}
-              {!erroresCliente && estado.estado === "error" && !estado.errores ? (
+              {enlaceWhatsappHogar &&
+              !erroresCliente &&
+              estado.estado === "error" &&
+              !estado.errores ? (
                 <a
                   href={enlaceWhatsappHogar}
                   target="_blank"

@@ -2,19 +2,19 @@ import { ChevronDown } from "lucide-react";
 
 import { siteConfig } from "@/config/site";
 import { Seccion } from "@/components/ui/seccion";
+import type { PreguntaFrecuente } from "@/types/contenido";
 
 /**
  * Acordeón con <details>/<summary> nativos: accesibles por teclado y lector de
  * pantalla sin JavaScript, y el contenido es indexable y buscable (Ctrl+F).
  */
-export function PreguntasFrecuentes() {
-  const { preguntasFrecuentes } = siteConfig;
+export function PreguntasFrecuentes({ preguntas }: { preguntas: PreguntaFrecuente[] }) {
   return (
-    <Seccion id="preguntas" titulo={preguntasFrecuentes.titulo} alterna>
+    <Seccion id="preguntas" titulo={siteConfig.titulos.preguntas} alterna>
       <div className="mx-auto max-w-3xl space-y-3">
-        {preguntasFrecuentes.lista.map((item) => (
+        {preguntas.map((item) => (
           <details
-            key={item.pregunta}
+            key={item.id}
             className="group rounded-2xl border border-salvia-200 bg-white open:shadow-sm"
           >
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-5 py-4 text-lg font-semibold hover:bg-salvia-50 [&::-webkit-details-marker]:hidden">
@@ -24,7 +24,7 @@ export function PreguntasFrecuentes() {
                 aria-hidden="true"
               />
             </summary>
-            <p className="px-5 pb-5 text-tinta-suave">{item.respuesta}</p>
+            <p className="px-5 pb-5 whitespace-pre-line text-tinta-suave">{item.respuesta}</p>
           </details>
         ))}
       </div>

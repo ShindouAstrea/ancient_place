@@ -19,6 +19,19 @@ const supabase = origenesSupabase();
 // upgrade-insecure-requests rompería Supabase local (http) al probar la imagen en local.
 const supabaseEsHttps = supabase[0]?.startsWith("https:") ?? true;
 
+/**
+ * Fotos del sitio (bucket "sitio" de Supabase Storage) que next/image puede optimizar.
+ * En local Supabase corre en 127.0.0.1: next/image bloquea IPs privadas por defecto
+ * (protección SSRF), así que solo en ese caso se permite.
+ */
+const urlSupabase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const fotosSupabase = urlSupabase
+  ? [new URL(`${urlSupabase.replace(/\/+$/, "")}/storage/v1/object/public/sitio/**`)]
+  : [];
+const supabaseEsLocal = urlSupabase
+  ? ["127.0.0.1", "localhost"].includes(new URL(urlSupabase).hostname)
+  : false;
+
 const TURNSTILE = "https://challenges.cloudflare.com";
 const GOOGLE_MAPS = ["https://www.google.com", "https://maps.google.com"];
 
@@ -33,7 +46,9 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' ${TURNSTILE}${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  // Fotos del sitio desde Supabase Storage (next/image las sirve optimizadas desde el
+  // propio dominio; el origen de Supabase cubre las vistas previas del panel).
+  `img-src 'self' blob: data: ${supabase[0]}`,
   "font-src 'self'",
   `connect-src 'self' ${supabase.join(" ")} ${TURNSTILE}${isDev ? " ws: wss:" : ""}`,
   `frame-src ${TURNSTILE} ${GOOGLE_MAPS.join(" ")}`,
@@ -75,6 +90,17 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  images: {
+    remotePatterns: fotosSupabase,
+    dangerouslyAllowLocalIP: supabaseEsLocal,
+  },
+  experimental: {
+    serverActions: {
+      // Subida de fotos desde el panel. El navegador ya las reduce (≤1600 px, WebP),
+      // así que rara vez superan 500 KB; Vercel admite hasta 4,5 MB por petición.
+      bodySizeLimit: "4mb",
+    },
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

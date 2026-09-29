@@ -1,58 +1,70 @@
 import { Clock, MapPin, Navigation } from "lucide-react";
 
-import { esPendiente, siteConfig } from "@/config/site";
+import { siteConfig } from "@/config/site";
 import { BotonEnlace } from "@/components/ui/boton";
 import { Seccion } from "@/components/ui/seccion";
 import { Tarjeta } from "@/components/ui/tarjeta";
+import type { ConfiguracionSitio } from "@/types/contenido";
 
-export function Ubicacion() {
-  const { ubicacion, horarioVisitas, ubicacionSeccion } = siteConfig;
-  const mapaPendiente = esPendiente(ubicacion.googleMapsEmbedUrl);
+/** La sección se muestra si hay dirección, horario o mapa. */
+export function tieneUbicacion(config: ConfiguracionSitio) {
+  return Boolean(config.direccion || config.horario_visitas || config.maps_embed_url);
+}
+
+/** Dirección en una línea: "Av. Ejemplo 123, Santiago, Región Metropolitana". */
+export function direccionCompleta(config: ConfiguracionSitio) {
+  return [config.direccion, config.ciudad, config.region].filter(Boolean).join(", ");
+}
+
+export function Ubicacion({ config }: { config: ConfiguracionSitio }) {
+  const direccion = direccionCompleta(config);
 
   return (
-    <Seccion id="ubicacion" titulo={ubicacionSeccion.titulo} alterna>
-      <div className="grid gap-8 lg:grid-cols-[20rem_1fr]">
+    <Seccion id="ubicacion" titulo={siteConfig.titulos.ubicacion} alterna>
+      <div
+        className={
+          config.maps_embed_url ? "grid gap-8 lg:grid-cols-[20rem_1fr]" : "mx-auto max-w-xl"
+        }
+      >
         <Tarjeta className="flex flex-col gap-6">
-          <div className="flex gap-3">
-            <MapPin className="mt-1 size-6 shrink-0 text-salvia-700" aria-hidden="true" />
-            <div>
-              <h3 className="text-lg font-semibold">Dirección</h3>
-              <address className="text-tinta-suave not-italic">
-                {ubicacion.direccion}
-                <br />
-                {ubicacion.ciudad}, {ubicacion.region}
-              </address>
+          {direccion ? (
+            <div className="flex gap-3">
+              <MapPin className="mt-1 size-6 shrink-0 text-salvia-700" aria-hidden="true" />
+              <div>
+                <h3 className="text-lg font-semibold">Dirección</h3>
+                <address className="text-tinta-suave not-italic">{direccion}</address>
+              </div>
             </div>
-          </div>
-          <div className="flex gap-3">
-            <Clock className="mt-1 size-6 shrink-0 text-salvia-700" aria-hidden="true" />
-            <div>
-              <h3 className="text-lg font-semibold">Horario de visitas</h3>
-              <p className="text-tinta-suave">{horarioVisitas}</p>
+          ) : null}
+          {config.horario_visitas ? (
+            <div className="flex gap-3">
+              <Clock className="mt-1 size-6 shrink-0 text-salvia-700" aria-hidden="true" />
+              <div>
+                <h3 className="text-lg font-semibold">Horario de visitas</h3>
+                <p className="whitespace-pre-line text-tinta-suave">{config.horario_visitas}</p>
+              </div>
             </div>
-          </div>
-          <BotonEnlace href={ubicacion.googleMapsUrl} externo variante="secundario">
-            <Navigation className="size-5" aria-hidden="true" />
-            Cómo llegar
-          </BotonEnlace>
+          ) : null}
+          {config.maps_url ? (
+            <BotonEnlace href={config.maps_url} externo variante="secundario">
+              <Navigation className="size-5" aria-hidden="true" />
+              Cómo llegar
+            </BotonEnlace>
+          ) : null}
         </Tarjeta>
 
-        <div className="min-h-80 overflow-hidden rounded-2xl border border-salvia-200 bg-salvia-100">
-          {mapaPendiente ? (
-            <div className="flex h-full min-h-80 items-center justify-center p-6 text-center text-tinta-suave">
-              [Mapa pendiente: agregar googleMapsEmbedUrl en site.ts]
-            </div>
-          ) : (
-            // loading="lazy": el mapa (pesado) solo se carga al acercarse a la sección.
+        {config.maps_embed_url ? (
+          <div className="min-h-80 overflow-hidden rounded-2xl border border-salvia-200 bg-salvia-100">
+            {/* loading="lazy": el mapa (pesado) solo se carga al acercarse a la sección. */}
             <iframe
-              src={ubicacion.googleMapsEmbedUrl}
-              title={`Mapa de ubicación de ${siteConfig.nombre}`}
+              src={config.maps_embed_url}
+              title={`Mapa de ubicación de ${config.nombre}`}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               className="h-full min-h-80 w-full border-0"
             />
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </Seccion>
   );

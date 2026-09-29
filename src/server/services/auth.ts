@@ -9,6 +9,7 @@ import {
   iniciarSesionConContrasena,
   obtenerSesionActual,
   type Administrador,
+  type RolAdmin,
 } from "@/server/repositories/auth";
 
 import { permitirIntento } from "./rate-limit";
@@ -23,6 +24,18 @@ import { permitirIntento } from "./rate-limit";
 
 /** Sesión actual, memoizada durante una misma petición (layout + página = 1 consulta). */
 export const obtenerSesion = cache(obtenerSesionActual);
+
+export type { Administrador, RolAdmin } from "@/server/repositories/auth";
+
+/**
+ * Exige un administrador con el rol indicado. Sin sesión → login; con sesión pero sin
+ * ese rol → inicio del panel con un aviso. RLS vuelve a exigir el rol en la base de datos.
+ */
+export async function requerirRol(rol: RolAdmin): Promise<Administrador> {
+  const admin = await requerirAdmin();
+  if (!admin.roles.includes(rol)) redirect("/admin?aviso=sin-permiso");
+  return admin;
+}
 
 /** Exige un administrador; si no lo hay, redirige al login (nunca devuelve null). */
 export async function requerirAdmin(): Promise<Administrador> {

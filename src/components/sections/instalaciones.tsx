@@ -2,21 +2,22 @@ import Image from "next/image";
 
 import { siteConfig } from "@/config/site";
 import { Seccion } from "@/components/ui/seccion";
+import { urlFoto } from "@/lib/utils/fotos";
+import type { Foto } from "@/types/contenido";
 
-export function Instalaciones() {
-  const { instalaciones } = siteConfig;
+export function Instalaciones({ fotos, introduccion }: { fotos: Foto[]; introduccion: string }) {
   return (
     <Seccion
       id="instalaciones"
-      titulo={instalaciones.titulo}
-      introduccion={instalaciones.introduccion}
+      titulo={siteConfig.titulos.instalaciones}
+      introduccion={introduccion || undefined}
     >
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {instalaciones.fotos.map((foto) => (
-          <li key={foto.src} className="overflow-hidden rounded-2xl bg-salvia-100 shadow-sm">
+        {fotos.map((foto) => (
+          <li key={foto.id} className="overflow-hidden rounded-2xl bg-salvia-100 shadow-sm">
             {/* Carga diferida (por defecto en next/image): no afecta la carga inicial. */}
             <Image
-              src={foto.src}
+              src={urlFoto(foto.ruta)}
               alt={foto.alt}
               width={foto.ancho}
               height={foto.alto}

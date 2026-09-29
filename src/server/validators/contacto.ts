@@ -22,7 +22,7 @@ export function normalizarTelefonoChileno(valor: string): string | null {
   return /^[2-9]\d{8}$/.test(digitos) ? `+56${digitos}` : null;
 }
 
-const parentescos = siteConfig.contactoSeccion.parentescos;
+const parentescos = siteConfig.contacto.parentescos;
 
 export const esquemaContacto = z.object({
   nombre: z

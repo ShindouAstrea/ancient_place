@@ -63,5 +63,44 @@ begin
   );
 
   insert into public.admins (user_id, email) values (v_id, 'admin@example.com');
+  -- Ambos roles: gestiona el sitio web y (a futuro) los pacientes.
+  insert into public.admin_roles (user_id, rol) values (v_id, 'sitio'), (v_id, 'pacientes');
 end;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- Contenido del sitio de EJEMPLO (ficticio, solo local). En producción se completa
+-- desde el panel: /admin/sitio.
+-- -----------------------------------------------------------------------------
+update public.configuracion_sitio set
+  nombre = 'Hogar Los Aromos (ejemplo)',
+  descripcion_corta = 'Hogar de reposo para adultos mayores con cuidado las 24 horas.',
+  whatsapp = '+56911112222',
+  telefono = '+56911112222',
+  email_contacto = 'contacto@example.com',
+  email_notificaciones = 'avisos@example.com',
+  email_remitente = 'Sitio web <onboarding@resend.dev>',
+  direccion = 'Av. Ejemplo 1234',
+  ciudad = 'Santiago',
+  region = 'Región Metropolitana',
+  horario_visitas = 'Lunes a domingo de 10:00 a 18:00',
+  hero_subtitulo = 'Atención profesional las 24 horas en un ambiente tranquilo, cálido y seguro.',
+  nosotros_texto = E'Somos un hogar familiar dedicado al cuidado de adultos mayores.\n\nTrabajamos con respeto, cercanía y comunicación permanente con las familias.',
+  destacados = '[{"valor": "10", "etiqueta": "años de experiencia"}, {"valor": "24/7", "etiqueta": "atención y supervisión"}]',
+  servicios_intro = 'Todo lo que tu familiar necesita para vivir tranquilo y bien acompañado.';
+
+insert into public.servicios (titulo, descripcion, icono, orden) values
+  ('Cuidado 24/7', 'Personal presente día y noche.', 'HeartHandshake', 0),
+  ('Enfermería', 'Control de signos vitales y administración de medicamentos.', 'Stethoscope', 1),
+  ('Alimentación supervisada', 'Menús equilibrados y adaptados a cada residente.', 'Utensils', 2);
+
+insert into public.razones (titulo, descripcion, icono, orden) values
+  ('Ambiente de hogar', 'Espacios tranquilos y acogedores.', 'House', 0),
+  ('Comunicación con las familias', 'Te mantenemos informado sobre tu familiar.', 'HeartPulse', 1);
+
+insert into public.testimonios (texto, autor, relacion, orden) values
+  ('Testimonio de ejemplo: el trato con mi mamá ha sido excelente.', 'M. S.', 'hija de residente', 0);
+
+insert into public.preguntas_frecuentes (pregunta, respuesta, orden) values
+  ('¿Cuál es el horario de visitas?', 'Lunes a domingo de 10:00 a 18:00, sin aviso previo.', 0),
+  ('¿Qué incluye la mensualidad?', 'Respuesta de ejemplo: alojamiento, alimentación y cuidados.', 1);

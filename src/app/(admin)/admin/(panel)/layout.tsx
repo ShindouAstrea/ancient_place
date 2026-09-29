@@ -2,6 +2,7 @@ import { Leaf, LogOut } from "lucide-react";
 import Link from "next/link";
 
 import { NavegacionInferior, NavegacionSuperior } from "@/components/admin/navegacion-admin";
+import { navegacionPara } from "@/config/admin";
 import { BotonEnviar } from "@/components/ui/boton-enviar";
 import { salir } from "@/server/actions/auth";
 import { requerirAdmin } from "@/server/services/auth";
@@ -13,6 +14,7 @@ import { requerirAdmin } from "@/server/services/auth";
  */
 export default async function PanelLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const admin = await requerirAdmin();
+  const navegacion = navegacionPara(admin.roles);
 
   return (
     <>
@@ -33,10 +35,10 @@ export default async function PanelLayout({ children }: Readonly<{ children: Rea
             Panel
           </Link>
 
-          <NavegacionSuperior />
+          <NavegacionSuperior items={navegacion} />
 
           <div className="ml-auto flex items-center gap-3">
-            <span className="hidden max-w-56 truncate text-base text-tinta-suave sm:block">
+            <span className="hidden max-w-56 truncate text-base text-tinta-suave xl:block">
               {admin.email}
             </span>
             <form action={salir}>
@@ -53,12 +55,12 @@ export default async function PanelLayout({ children }: Readonly<{ children: Rea
       <main
         id="contenido"
         tabIndex={-1}
-        className="mx-auto w-full max-w-5xl px-4 pt-6 pb-28 outline-none sm:px-6 md:pb-12"
+        className="mx-auto w-full max-w-5xl px-4 pt-6 pb-28 outline-none sm:px-6 lg:pb-12"
       >
         {children}
       </main>
 
-      <NavegacionInferior />
+      <NavegacionInferior items={navegacion} />
     </>
   );
 }

@@ -176,12 +176,24 @@ y actualizar la variable. Si el secreto falta o no coincide, el formulario deja 
 | `/admin/login`  | Ingreso con correo y contraseña                                    |
 | `/admin`        | Inicio: resumen de contactos y módulos (actuales y futuros)        |
 | `/admin/leads`  | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
+| `/admin/sitio`  | Sitio web: información, fotos, servicios, testimonios, preguntas   |
 | `/admin/cuenta` | Mi cuenta: cambiar la contraseña                                   |
+
+### Roles
+
+| Rol         | Da acceso a                                                                   |
+| ----------- | ----------------------------------------------------------------------------- |
+| `sitio`     | **Sitio web** (todo el contenido público) y **Contactos** del formulario      |
+| `pacientes` | Módulos con datos de residentes (Pacientes, Agenda, Inventario: próximamente) |
+
+Una persona puede tener ambos roles. Cada rol se exige en el panel **y en la base de datos
+(RLS)**: aunque alguien llamara directo a la API, sin el rol no puede leer ni modificar esos datos.
 
 ### Entrar en local
 
 `corepack pnpm dev`, abrir http://localhost:3000/admin e ingresar con el administrador de
-prueba del seed: **`admin@example.com`** / **`admin-local-12345`** (solo existe en local).
+prueba del seed: **`admin@example.com`** / **`admin-local-12345`** (tiene ambos roles; solo
+existe en local).
 
 ### Capas de seguridad del acceso
 
@@ -193,28 +205,41 @@ prueba del seed: **`admin@example.com`** / **`admin-local-12345`** (solo existe 
 | CAPTCHA (Turnstile) opcional, verificado por Supabase                 | Intentos automatizados               |
 | Mismo mensaje si el correo no existe o la contraseña es incorrecta    | Averiguar qué correos tienen cuenta  |
 | Rol en la tabla `admins`, verificado en cada página y acción, más RLS | Cuentas sin rol de administrador     |
+| Roles `sitio` / `pacientes` exigidos por RLS                          | Ver o editar lo que no corresponde   |
 | Cookie de sesión `httpOnly`                                           | Robo de la sesión mediante XSS       |
 | Sesión verificada contra el servidor de Auth en cada página           | Seguir usando una sesión ya cerrada  |
 | Cambio de contraseña exige la actual y cierra los otros dispositivos  | Uso de un celular con sesión abierta |
 | `noindex` (metadata + cabecera `X-Robots-Tag`)                        | Que el panel aparezca en buscadores  |
 
 Para agregar un módulo (agenda, inventario, pacientes): crear su página en
-`src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a `requerirAdmin()` en ella y en sus
-servicios, y cambiar `disponible: true` en [`src/config/admin.ts`](src/config/admin.ts).
+`src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a `requerirRol("pacientes")` (o el rol
+que corresponda) en ella y en sus servicios, proteger sus tablas con `tiene_rol(...)` en RLS, y
+cambiar `disponible: true` en [`src/config/admin.ts`](src/config/admin.ts).
 
 ### Crear un administrador (producción)
 
 1. Supabase Dashboard → **Authentication → Users → Add user → Create new user**: correo,
    contraseña (12 caracteres o más) y marcar **Auto Confirm User**.
-2. SQL Editor:
+2. SQL Editor (elige los roles que correspondan):
    ```sql
    insert into public.admins (user_id, email)
    select id, email from auth.users where email = 'persona@dominio.cl';
+
+   -- Sitio web y contactos:
+   insert into public.admin_roles (user_id, rol)
+   select user_id, 'sitio' from public.admins where email = 'persona@dominio.cl';
+
+   -- Pacientes:
+   insert into public.admin_roles (user_id, rol)
+   select user_id, 'pacientes' from public.admins where email = 'persona@dominio.cl';
    ```
 
 Crear el usuario no basta: sin la fila en `admins`, el login responde "Esta cuenta no tiene
-acceso al panel". Para quitar el acceso: `delete from public.admins where email = 'persona@dominio.cl';`
-(y opcionalmente borrar el usuario en Authentication → Users).
+acceso al panel"; y sin roles entra al panel pero no ve ningún módulo.
+
+- Quitar un rol: `delete from public.admin_roles where rol = 'pacientes' and user_id = (select user_id from public.admins where email = 'persona@dominio.cl');`
+- Quitar todo el acceso: `delete from public.admins where email = 'persona@dominio.cl';` (sus
+  roles se borran solos; opcionalmente borra también el usuario en Authentication → Users).
 
 ### Cambiar la contraseña de un administrador
 
@@ -282,6 +307,26 @@ y se ejecuta con el usuario sin privilegios `node`.
 
 ## Dónde editar los textos del sitio
 
-Todos los datos del negocio están en [`src/config/site.ts`](src/config/site.ts). Los valores
-entre corchetes (`[NOMBRE DEL HOGAR]`, etc.) son marcadores pendientes; en producción el
-servidor avisa en los logs si queda alguno.
+**Desde el panel, en `/admin/sitio`** (rol `sitio`), sin volver a desplegar: nombre, WhatsApp y
+su mensaje, teléfono, correos, dirección, horario, mapa, portada, «Quiénes somos», fotos,
+servicios, «Por qué elegirnos», testimonios, preguntas frecuentes y datos de la política de
+privacidad. El índice del módulo muestra qué datos faltan.
+
+- Las secciones **sin contenido no se muestran** (sin fotos no hay galería, sin testimonios no
+  hay sección de testimonios, etc.), y los botones de contacto sin número tampoco.
+- Las páginas públicas siguen siendo **estáticas** (rápidas): al guardar en el panel se
+  regeneran solas en la siguiente visita (y, como respaldo, cada hora).
+- Las **fotos** se reducen en el navegador (máx. 1600 px, WebP) antes de subirse, lo que
+  además les quita los metadatos con la ubicación GPS. Se guardan en el bucket `sitio` de
+  Supabase Storage: cualquiera puede verlas por su URL, pero solo el rol `sitio` puede subir o
+  borrar, y nadie puede listar el bucket.
+- [`src/config/site.ts`](src/config/site.ts) quedó solo con textos fijos de la interfaz
+  (títulos de secciones, botones y opciones del formulario).
+
+### Aplicar este cambio en producción
+
+1. `corepack pnpm db:push`: crea las tablas de contenido, los roles y el bucket de fotos.
+   Los administradores que ya existían reciben **ambos roles** automáticamente.
+2. Hacer commit y push (Vercel despliega).
+3. Entrar a `/admin/sitio` y completar la información: el sitio parte con el nombre
+   genérico «Hogar de reposo» y las secciones vacías ocultas.

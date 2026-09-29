@@ -1,5 +1,3 @@
-import { siteConfig } from "@/config/site";
-
 /** Deja solo los dígitos de un número de teléfono ("+56 9 1234 5678" → "56912345678"). */
 export function soloDigitos(numero: string): string {
   return numero.replace(/\D/g, "");
@@ -38,7 +36,8 @@ export function formatearTelefono(telefono: string): string {
 }
 
 /** Mensaje prellenado para responder por WhatsApp a una persona interesada. */
-export function mensajeRespuestaWhatsapp(nombreCompleto: string): string {
+export function mensajeRespuestaWhatsapp(nombreCompleto: string, nombreHogar: string): string {
   const primerNombre = nombreCompleto.trim().split(/\s+/)[0] ?? "";
-  return `Hola ${primerNombre}, te escribimos de ${siteConfig.nombre} por tu solicitud de información.`;
+  const desde = nombreHogar ? ` de ${nombreHogar}` : "";
+  return `Hola ${primerNombre}, te escribimos${desde} por tu solicitud de información.`;
 }

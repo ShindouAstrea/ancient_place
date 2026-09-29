@@ -1,6 +1,5 @@
 import { Mail, Phone } from "lucide-react";
 
-import { siteConfig } from "@/config/site";
 import { BotonEnlace } from "@/components/ui/boton";
 import { IconoWhatsapp } from "@/components/ui/icono-whatsapp";
 import { cn } from "@/lib/utils/cn";
@@ -21,10 +20,21 @@ import { SelectorEstado } from "./selector-estado";
  * Tarjeta de un contacto, pensada para el celular: datos legibles, acciones grandes
  * (llamar, WhatsApp, correo) y cambio de estado al alcance del pulgar.
  */
-export function TarjetaLead({ lead, ahora }: { lead: LeadPanel; ahora: Date }) {
+export function TarjetaLead({
+  lead,
+  ahora,
+  nombreHogar,
+}: {
+  lead: LeadPanel;
+  ahora: Date;
+  /** Nombre del hogar (editable en el panel), para el asunto y el mensaje de respuesta. */
+  nombreHogar: string;
+}) {
   const idTitulo = `lead-${lead.id}`;
   const celular = esCelularChileno(lead.telefono);
-  const asuntoCorreo = encodeURIComponent(`Tu solicitud de información - ${siteConfig.nombre}`);
+  const asuntoCorreo = encodeURIComponent(
+    nombreHogar ? `Tu solicitud de información - ${nombreHogar}` : "Tu solicitud de información",
+  );
 
   return (
     <article
@@ -78,7 +88,7 @@ export function TarjetaLead({ lead, ahora }: { lead: LeadPanel; ahora: Date }) {
         </BotonEnlace>
         {celular ? (
           <BotonEnlace
-            href={enlaceWhatsapp(lead.telefono, mensajeRespuestaWhatsapp(lead.nombre))}
+            href={enlaceWhatsapp(lead.telefono, mensajeRespuestaWhatsapp(lead.nombre, nombreHogar))}
             externo
             variante="whatsapp"
           >
