@@ -1,5 +1,5 @@
 import { NOMBRES_ICONOS } from "@/config/iconos";
-import { DIAS_SEMANA } from "@/lib/utils/horario";
+import { DIAS_SEMANA, PATRON_HORA } from "@/lib/utils/horario";
 import { z } from "@/lib/zod";
 import type { TipoLista } from "@/types/contenido";
 
@@ -27,7 +27,7 @@ const textoObligatorio = (maximo: number, mensaje: string) =>
     });
 
 /** Teléfono chileno opcional: vacío o normalizado a +56XXXXXXXXX. */
-const telefonoOpcional = z
+export const telefonoOpcional = z
   .string()
   .trim()
   .transform((valor, ctx) => {
@@ -119,7 +119,6 @@ const rutOpcional = z
 
 /** Tramos del formulario: cada uno con 7 casillas (tramoN_dia_D) y dos horas. */
 export const TRAMOS_HORARIO = [1, 2, 3] as const;
-const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** Agrupa los campos tramoN_* del formulario en una lista (los demás campos no cambian). */
 function agruparTramos(datos: unknown) {
@@ -146,7 +145,7 @@ const horarioTramos = z
       const problema =
         tramo.dias.length === 0
           ? "marca al menos un día"
-          : !HORA.test(tramo.desde) || !HORA.test(tramo.hasta)
+          : !PATRON_HORA.test(tramo.desde) || !PATRON_HORA.test(tramo.hasta)
             ? "indica la hora de inicio y la de término"
             : tramo.desde >= tramo.hasta
               ? "la hora de término debe ser posterior a la de inicio"

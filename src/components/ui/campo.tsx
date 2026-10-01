@@ -15,6 +15,12 @@ export const claseControl =
   "placeholder:text-tinta-suave/70 focus:border-salvia-700 focus-visible:outline-offset-1 " +
   "aria-invalid:border-terracota min-h-12";
 
+/** Como claseControl, con menos relleno lateral: dos horas caben lado a lado en 360 px. */
+export const claseHora =
+  "block w-full min-w-0 min-h-12 rounded-xl border-2 border-salvia-300 bg-white px-2 py-3 " +
+  "text-lg text-tinta tabular-nums focus:border-salvia-700 focus-visible:outline-offset-1 " +
+  "aria-invalid:border-terracota";
+
 type BaseCampo = {
   id: string;
   etiqueta: string;
@@ -117,7 +123,11 @@ export function CampoSeleccion({
   opciones,
   className,
   ...props
-}: BaseCampo & Omit<ComponentProps<"select">, "id"> & { opciones: readonly string[] }) {
+}: BaseCampo &
+  Omit<ComponentProps<"select">, "id"> & {
+    /** Texto (valor = etiqueta) o { valor, etiqueta } cuando difieren. */
+    opciones: readonly (string | { valor: string; etiqueta: string })[];
+  }) {
   const campo = { id, etiqueta, ayuda, error, opcional };
   return (
     <Envoltorio {...campo}>
@@ -132,11 +142,15 @@ export function CampoSeleccion({
         {...props}
       >
         <option value="">Selecciona una opción</option>
-        {opciones.map((opcion) => (
-          <option key={opcion} value={opcion}>
-            {opcion}
-          </option>
-        ))}
+        {opciones.map((opcion) => {
+          const { valor, etiqueta: texto } =
+            typeof opcion === "string" ? { valor: opcion, etiqueta: opcion } : opcion;
+          return (
+            <option key={valor} value={valor}>
+              {texto}
+            </option>
+          );
+        })}
       </select>
     </Envoltorio>
   );

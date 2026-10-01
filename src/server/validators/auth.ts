@@ -122,6 +122,18 @@ export type EstadoRestablecimiento =
       siguiente?: "nuevo-enlace" | "ingresar";
     };
 
+/**
+ * Ruta a la que volver después de ingresar (?siguiente=...). Solo se aceptan rutas
+ * internas del panel: evita que un enlace malicioso redirija a otro sitio después del
+ * login (open redirect). Devuelve null si no es segura.
+ */
+export function rutaSiguienteSegura(valor: unknown): string | null {
+  if (typeof valor !== "string" || valor.length > 200) return null;
+  if (!/^\/admin(\/[A-Za-z0-9_-]+)*$/.test(valor)) return null;
+  if (valor === "/admin/login") return null;
+  return valor;
+}
+
 /** Motivos que el login puede mostrar (vienen en ?motivo=...). */
 export const MOTIVOS_LOGIN = [
   "sin-acceso",

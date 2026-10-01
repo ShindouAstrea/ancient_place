@@ -109,6 +109,8 @@ const nextConfig: NextConfig = {
       // Su URL lleva el token del correo: que no viaje como Referer a ningún sitio.
       // (Si dos reglas definen la misma cabecera, gana la última.)
       { source: "/admin/restablecer", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      // Lo mismo para el código del QR de las fichas (/admin/p/<código>).
+      { source: "/admin/p/:codigo", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };

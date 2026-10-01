@@ -3,9 +3,10 @@ import type { Database } from "@/types/database";
 /**
  * Módulos del panel de administración: única fuente de la navegación.
  *
- * Cada módulo exige un rol:
+ * Cada módulo exige alguno de sus roles:
  * - "sitio": contenido del sitio web y contactos del formulario.
- * - "pacientes": módulos con datos de residentes (datos de salud, sensibles).
+ * - "pacientes": fichas de residentes (datos de salud, sensibles): ver y editar.
+ * - "pacientes_lectura": fichas de residentes: ver y registrar dosis (no editar).
  *
  * Para habilitar un módulo futuro: crear su página en
  * src/app/(admin)/admin/(panel)/<ruta>/page.tsx (protegida con requerirRol) y cambiar
@@ -16,8 +17,15 @@ export type RolAdmin = Database["public"]["Enums"]["rol_admin"];
 
 export const NOMBRES_ROL: Record<RolAdmin, string> = {
   sitio: "Sitio web y contactos",
-  pacientes: "Pacientes",
+  pacientes: "Fichas de pacientes (ver y editar)",
+  pacientes_lectura: "Fichas de pacientes (ver y registrar dosis)",
 };
+
+/**
+ * Roles que pueden ver las fichas de pacientes y registrar dosis; solo "pacientes"
+ * puede editarlas.
+ */
+export const ROLES_VER_FICHAS = ["pacientes", "pacientes_lectura"] as const satisfies RolAdmin[];
 
 /** Íconos disponibles para el panel. Para agregar uno, súmalo en components/admin/icono-admin.tsx. */
 export type NombreIconoAdmin =
@@ -30,7 +38,8 @@ export type ModuloAdmin = {
   descripcion: string;
   href: string;
   icono: NombreIconoAdmin;
-  rol: RolAdmin;
+  /** Basta con tener uno de estos roles. */
+  roles: readonly RolAdmin[];
   disponible: boolean;
 };
 
@@ -41,7 +50,7 @@ export const modulosAdmin = [
     descripcion: "Solicitudes de información recibidas desde el sitio web.",
     href: "/admin/leads",
     icono: "Inbox",
-    rol: "sitio",
+    roles: ["sitio"],
     disponible: true,
   },
   {
@@ -50,7 +59,7 @@ export const modulosAdmin = [
     descripcion: "Nombre, contacto, fotos, servicios, testimonios y preguntas del sitio.",
     href: "/admin/sitio",
     icono: "Globe",
-    rol: "sitio",
+    roles: ["sitio"],
     disponible: true,
   },
   {
@@ -59,7 +68,7 @@ export const modulosAdmin = [
     descripcion: "Visitas de familias, citas y actividades.",
     href: "/admin/agenda",
     icono: "CalendarDays",
-    rol: "pacientes",
+    roles: ["pacientes"],
     disponible: false,
   },
   {
@@ -68,17 +77,17 @@ export const modulosAdmin = [
     descripcion: "Insumos, medicamentos y materiales.",
     href: "/admin/inventario",
     icono: "Package",
-    rol: "pacientes",
+    roles: ["pacientes"],
     disponible: false,
   },
   {
     nombre: "Pacientes",
     nombreCorto: "Pacientes",
-    descripcion: "Fichas y documentación de residentes.",
+    descripcion: "Fichas de residentes: datos, medicamentos y código QR.",
     href: "/admin/pacientes",
     icono: "ClipboardList",
-    rol: "pacientes",
-    disponible: false,
+    roles: ROLES_VER_FICHAS,
+    disponible: true,
   },
 ] as const satisfies readonly ModuloAdmin[];
 
@@ -86,7 +95,7 @@ export type ElementoNavegacion = Pick<ModuloAdmin, "nombre" | "nombreCorto" | "h
 
 /** Módulos que corresponden a los roles de una persona. */
 export function modulosPara(roles: readonly RolAdmin[]): readonly ModuloAdmin[] {
-  return modulosAdmin.filter((m) => roles.includes(m.rol));
+  return modulosAdmin.filter((m) => m.roles.some((rol) => roles.includes(rol)));
 }
 
 /** Menú: inicio + módulos disponibles para sus roles + su cuenta. */

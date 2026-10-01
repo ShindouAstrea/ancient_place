@@ -25,8 +25,11 @@ import { erroresPorCampo } from "@/server/validators/contacto";
 
 const ESTADO_INICIAL: EstadoInicioSesion = { estado: "inicial" };
 
-/** Formulario de ingreso al panel: correo y contraseña. Si todo está bien, el servidor redirige. */
-export function FormularioAcceso() {
+/**
+ * Formulario de ingreso al panel: correo y contraseña. Si todo está bien, el servidor
+ * redirige al panel o a `siguiente` (ej: la ficha que abrió un QR).
+ */
+export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
   const [estado, accion, enviando] = useActionState(iniciarSesionAccion, ESTADO_INICIAL);
   const [erroresCliente, setErroresCliente] = useState<Partial<
     Record<CampoInicioSesion, string>
@@ -98,6 +101,7 @@ export function FormularioAcceso() {
 
   return (
     <form onSubmit={alEnviar} noValidate aria-busy={enviando} className="flex flex-col gap-5">
+      {siguiente ? <input type="hidden" name="siguiente" value={siguiente} /> : null}
       <CampoTexto
         id="email"
         etiqueta="Correo electrónico"

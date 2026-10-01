@@ -23,7 +23,11 @@ export async function proxy(request: NextRequest) {
   const esPublica = RUTAS_PUBLICAS.some((r) => ruta === r || ruta.startsWith(`${r}/`));
 
   if (!claims && !esPublica) {
-    return redirigir(new URL("/admin/login", request.url));
+    const login = new URL("/admin/login", request.url);
+    // Tras ingresar, vuelve a donde iba (ej: la ficha que abrió un QR). El login
+    // valida esta ruta antes de usarla.
+    if (ruta !== "/admin") login.searchParams.set("siguiente", ruta);
+    return redirigir(login);
   }
   return respuesta;
 }

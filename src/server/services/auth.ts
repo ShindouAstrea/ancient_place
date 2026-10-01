@@ -29,20 +29,33 @@ export const obtenerSesion = cache(obtenerSesionActual);
 
 export type { Administrador, RolAdmin } from "@/server/repositories/auth";
 
+type OpcionesAcceso = {
+  /** Ruta del panel a la que volver después de ingresar (ej: la ficha que abrió un QR). */
+  volverA?: string;
+};
+
 /**
- * Exige un administrador con el rol indicado. Sin sesión → login; con sesión pero sin
- * ese rol → inicio del panel con un aviso. RLS vuelve a exigir el rol en la base de datos.
+ * Exige un administrador con el rol indicado (o con alguno de ellos, si es una lista).
+ * Sin sesión → login; con sesión pero sin el rol → inicio del panel con un aviso. RLS
+ * vuelve a exigir el rol en la base de datos.
  */
-export async function requerirRol(rol: RolAdmin): Promise<Administrador> {
-  const admin = await requerirAdmin();
-  if (!admin.roles.includes(rol)) redirect("/admin?aviso=sin-permiso");
+export async function requerirRol(
+  rol: RolAdmin | readonly RolAdmin[],
+  opciones?: OpcionesAcceso,
+): Promise<Administrador> {
+  const admin = await requerirAdmin(opciones);
+  const aceptados: readonly RolAdmin[] = typeof rol === "string" ? [rol] : rol;
+  if (!aceptados.some((r) => admin.roles.includes(r))) redirect("/admin?aviso=sin-permiso");
   return admin;
 }
 
 /** Exige un administrador; si no lo hay, redirige al login (nunca devuelve null). */
-export async function requerirAdmin(): Promise<Administrador> {
+export async function requerirAdmin(opciones?: OpcionesAcceso): Promise<Administrador> {
   const sesion = await obtenerSesion();
-  if (!sesion.activa) redirect("/admin/login?motivo=sesion-requerida");
+  if (!sesion.activa) {
+    const volverA = opciones?.volverA ? `&siguiente=${encodeURIComponent(opciones.volverA)}` : "";
+    redirect(`/admin/login?motivo=sesion-requerida${volverA}`);
+  }
   if (!sesion.admin) redirect("/admin/login?motivo=sin-acceso");
   return sesion.admin;
 }

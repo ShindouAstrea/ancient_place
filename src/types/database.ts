@@ -29,6 +29,81 @@ export type Database = {
           },
         ];
       };
+      administraciones: {
+        Row: {
+          anulacion_motivo: string;
+          anulada_email: string | null;
+          anulada_en: string | null;
+          anulada_por: string | null;
+          dosis: string;
+          fecha: string;
+          hora_programada: string | null;
+          id: string;
+          medicamento_id: string | null;
+          medicamento_nombre: string;
+          motivo_omision: Database["public"]["Enums"]["motivo_omision"] | null;
+          observacion: string;
+          paciente_id: string;
+          registrado_email: string | null;
+          registrado_en: string;
+          registrado_por: string | null;
+          resultado: Database["public"]["Enums"]["resultado_dosis"];
+        };
+        Insert: {
+          anulacion_motivo?: string;
+          anulada_email?: string | null;
+          anulada_en?: string | null;
+          anulada_por?: string | null;
+          dosis: string;
+          fecha: string;
+          hora_programada?: string | null;
+          id?: string;
+          medicamento_id?: string | null;
+          medicamento_nombre: string;
+          motivo_omision?: Database["public"]["Enums"]["motivo_omision"] | null;
+          observacion?: string;
+          paciente_id: string;
+          registrado_email?: string | null;
+          registrado_en?: string;
+          registrado_por?: string | null;
+          resultado: Database["public"]["Enums"]["resultado_dosis"];
+        };
+        Update: {
+          anulacion_motivo?: string;
+          anulada_email?: string | null;
+          anulada_en?: string | null;
+          anulada_por?: string | null;
+          dosis?: string;
+          fecha?: string;
+          hora_programada?: string | null;
+          id?: string;
+          medicamento_id?: string | null;
+          medicamento_nombre?: string;
+          motivo_omision?: Database["public"]["Enums"]["motivo_omision"] | null;
+          observacion?: string;
+          paciente_id?: string;
+          registrado_email?: string | null;
+          registrado_en?: string;
+          registrado_por?: string | null;
+          resultado?: Database["public"]["Enums"]["resultado_dosis"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "administraciones_medicamento_id_fkey";
+            columns: ["medicamento_id"];
+            isOneToOne: false;
+            referencedRelation: "medicamentos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "administraciones_paciente_id_fkey";
+            columns: ["paciente_id"];
+            isOneToOne: false;
+            referencedRelation: "pacientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       admins: {
         Row: {
           created_at: string;
@@ -44,6 +119,45 @@ export type Database = {
           created_at?: string;
           email?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      auditoria_fichas: {
+        Row: {
+          accion: string;
+          antes: Json | null;
+          despues: Json | null;
+          fecha: string;
+          id: number;
+          paciente_id: string;
+          referencia: string | null;
+          tabla: string | null;
+          usuario_email: string | null;
+          usuario_id: string | null;
+        };
+        Insert: {
+          accion: string;
+          antes?: Json | null;
+          despues?: Json | null;
+          fecha?: string;
+          id?: never;
+          paciente_id: string;
+          referencia?: string | null;
+          tabla?: string | null;
+          usuario_email?: string | null;
+          usuario_id?: string | null;
+        };
+        Update: {
+          accion?: string;
+          antes?: Json | null;
+          despues?: Json | null;
+          fecha?: string;
+          id?: never;
+          paciente_id?: string;
+          referencia?: string | null;
+          tabla?: string | null;
+          usuario_email?: string | null;
+          usuario_id?: string | null;
         };
         Relationships: [];
       };
@@ -230,6 +344,140 @@ export type Database = {
         };
         Relationships: [];
       };
+      medicamentos: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          dias: number[];
+          dosis: string;
+          horarios: string[];
+          id: string;
+          indicaciones: string;
+          motivo_situacional: string;
+          nombre: string;
+          paciente_id: string;
+          situacional: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          dias?: number[];
+          dosis: string;
+          horarios?: string[];
+          id?: string;
+          indicaciones?: string;
+          motivo_situacional?: string;
+          nombre: string;
+          paciente_id: string;
+          situacional?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          dias?: number[];
+          dosis?: string;
+          horarios?: string[];
+          id?: string;
+          indicaciones?: string;
+          motivo_situacional?: string;
+          nombre?: string;
+          paciente_id?: string;
+          situacional?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "medicamentos_paciente_id_fkey";
+            columns: ["paciente_id"];
+            isOneToOne: false;
+            referencedRelation: "pacientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pacientes: {
+        Row: {
+          alergias: string;
+          apellidos: string;
+          codigo_qr: string;
+          contacto_nombre: string;
+          contacto_parentesco: string;
+          contacto_telefono: string;
+          created_at: string;
+          created_by: string | null;
+          deterioro_cognitivo: Database["public"]["Enums"]["grado_deterioro"];
+          deterioro_detalle: string;
+          fecha_egreso: string | null;
+          fecha_ingreso: string | null;
+          fecha_nacimiento: string | null;
+          habitacion: string;
+          id: string;
+          medico_tratante: string;
+          nombres: string;
+          observaciones: string;
+          prevision: string;
+          rut: string;
+          sexo: Database["public"]["Enums"]["sexo_paciente"] | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          alergias?: string;
+          apellidos: string;
+          codigo_qr?: string;
+          contacto_nombre?: string;
+          contacto_parentesco?: string;
+          contacto_telefono?: string;
+          created_at?: string;
+          created_by?: string | null;
+          deterioro_cognitivo?: Database["public"]["Enums"]["grado_deterioro"];
+          deterioro_detalle?: string;
+          fecha_egreso?: string | null;
+          fecha_ingreso?: string | null;
+          fecha_nacimiento?: string | null;
+          habitacion?: string;
+          id?: string;
+          medico_tratante?: string;
+          nombres: string;
+          observaciones?: string;
+          prevision?: string;
+          rut?: string;
+          sexo?: Database["public"]["Enums"]["sexo_paciente"] | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          alergias?: string;
+          apellidos?: string;
+          codigo_qr?: string;
+          contacto_nombre?: string;
+          contacto_parentesco?: string;
+          contacto_telefono?: string;
+          created_at?: string;
+          created_by?: string | null;
+          deterioro_cognitivo?: Database["public"]["Enums"]["grado_deterioro"];
+          deterioro_detalle?: string;
+          fecha_egreso?: string | null;
+          fecha_ingreso?: string | null;
+          fecha_nacimiento?: string | null;
+          habitacion?: string;
+          id?: string;
+          medico_tratante?: string;
+          nombres?: string;
+          observaciones?: string;
+          prevision?: string;
+          rut?: string;
+          sexo?: Database["public"]["Enums"]["sexo_paciente"] | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       preguntas_frecuentes: {
         Row: {
           created_at: string;
@@ -373,6 +621,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      anular_administracion: { Args: { p_id: string; p_motivo: string }; Returns: undefined };
       crear_lead: {
         Args: {
           p_consentimiento: boolean;
@@ -386,6 +635,9 @@ export type Database = {
         Returns: string;
       };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      puede_editar_fichas: { Args: Record<PropertyKey, never>; Returns: boolean };
+      puede_ver_fichas: { Args: Record<PropertyKey, never>; Returns: boolean };
+      registrar_consulta_ficha: { Args: { p_paciente_id: string }; Returns: undefined };
       tiene_rol: { Args: { p_rol: Database["public"]["Enums"]["rol_admin"] }; Returns: boolean };
       verificar_rate_limit: {
         Args: { p_accion: string; p_ip_hash: string; p_secreto: string };
@@ -394,7 +646,12 @@ export type Database = {
     };
     Enums: {
       estado_lead: "nuevo" | "contactado" | "descartado";
-      rol_admin: "sitio" | "pacientes";
+      grado_deterioro: "no_evaluado" | "sin_deterioro" | "leve" | "moderado" | "severo";
+      motivo_omision:
+        "rechazo" | "dormido" | "ausente" | "sin_stock" | "indicacion_medica" | "otro";
+      resultado_dosis: "administrada" | "omitida";
+      rol_admin: "sitio" | "pacientes" | "pacientes_lectura";
+      sexo_paciente: "femenino" | "masculino" | "otro";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -507,7 +764,11 @@ export const Constants = {
   public: {
     Enums: {
       estado_lead: ["nuevo", "contactado", "descartado"],
-      rol_admin: ["sitio", "pacientes"],
+      grado_deterioro: ["no_evaluado", "sin_deterioro", "leve", "moderado", "severo"],
+      motivo_omision: ["rechazo", "dormido", "ausente", "sin_stock", "indicacion_medica", "otro"],
+      resultado_dosis: ["administrada", "omitida"],
+      rol_admin: ["sitio", "pacientes", "pacientes_lectura"],
+      sexo_paciente: ["femenino", "masculino", "otro"],
     },
   },
 } as const;

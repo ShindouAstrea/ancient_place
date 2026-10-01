@@ -280,14 +280,19 @@ funcionar (fallan de forma cerrada) y el servidor lo registra en los logs (códi
    insert into public.admin_roles (user_id, rol)
    select user_id, 'sitio' from public.admins where email = 'persona@dominio.cl';
 
-   -- Pacientes:
+   -- Fichas de pacientes, ver y editar (enfermería, administración):
    insert into public.admin_roles (user_id, rol)
    select user_id, 'pacientes' from public.admins where email = 'persona@dominio.cl';
+
+   -- Fichas de pacientes, ver y registrar dosis, sin editar (cuidadores):
+   insert into public.admin_roles (user_id, rol)
+   select user_id, 'pacientes_lectura' from public.admins where email = 'persona@dominio.cl';
    ```
 
 Crear el usuario no basta: sin la fila en `admins`, el login responde "Esta cuenta no tiene
 acceso al panel"; y sin roles entra al panel pero no ve ningún módulo. Los administradores
-siguientes se crean igual.
+siguientes se crean igual. **Cada persona debe tener su propia cuenta** (nunca compartidas):
+así el historial de las fichas indica quién hizo cada cosa.
 
 - Quitar un rol: `delete from public.admin_roles where rol = 'pacientes' and user_id = (select user_id from public.admins where email = 'persona@dominio.cl');`
 - Quitar todo el acceso: `delete from public.admins where email = 'persona@dominio.cl';` (sus
@@ -430,31 +435,37 @@ docker run --rm -p 3000:3000 --env-file .env.production.local hogar-web:latest
 
 ## 5. Panel de administración
 
-| Ruta                 | Contenido                                                          |
-| -------------------- | ------------------------------------------------------------------ |
-| `/admin/login`       | Ingreso con correo y contraseña                                    |
-| `/admin/recuperar`   | «¿Olvidaste tu contraseña?»: envía un enlace por correo            |
-| `/admin/restablecer` | Destino del enlace: elegir la nueva contraseña                     |
-| `/admin`             | Inicio: resumen de contactos y módulos (actuales y futuros)        |
-| `/admin/leads`       | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
-| `/admin/sitio`       | Sitio web: información, horario, fotos, servicios, testimonios…    |
-| `/admin/cuenta`      | Mi cuenta: cambiar la contraseña                                   |
+| Ruta                     | Contenido                                                          |
+| ------------------------ | ------------------------------------------------------------------ |
+| `/admin/login`           | Ingreso con correo y contraseña                                    |
+| `/admin/recuperar`       | «¿Olvidaste tu contraseña?»: envía un enlace por correo            |
+| `/admin/restablecer`     | Destino del enlace: elegir la nueva contraseña                     |
+| `/admin`                 | Inicio: resumen de contactos y módulos (actuales y futuros)        |
+| `/admin/leads`           | Contactos en tarjetas: filtro por estado, llamar, WhatsApp, correo |
+| `/admin/sitio`           | Sitio web: información, horario, fotos, servicios, testimonios…    |
+| `/admin/pacientes`       | Fichas de residentes: datos, medicamentos, dosis, QR e historial   |
+| `/admin/pacientes/ronda` | Ronda: dosis de hoy de todos los residentes, por hora              |
+| `/admin/p/<código>`      | Destino del QR de una ficha: pide ingresar y abre la ficha         |
+| `/admin/cuenta`          | Mi cuenta: cambiar la contraseña                                   |
 
 ### Roles
 
-| Rol         | Da acceso a                                                                   |
-| ----------- | ----------------------------------------------------------------------------- |
-| `sitio`     | **Sitio web** (todo el contenido público) y **Contactos** del formulario      |
-| `pacientes` | Módulos con datos de residentes (Pacientes, Agenda, Inventario: próximamente) |
+| Rol                 | Da acceso a                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `sitio`             | **Sitio web** (todo el contenido público) y **Contactos** del formulario                 |
+| `pacientes`         | **Fichas de pacientes: ver y editar**, y su historial (Agenda, Inventario: próximamente) |
+| `pacientes_lectura` | **Fichas de pacientes: ver y registrar dosis**, sin editar (ej: cuidadores)              |
 
-Una persona puede tener ambos roles. Cada rol se exige en el panel **y en la base de datos
+Una persona puede tener varios roles. Cada rol se exige en el panel **y en la base de datos
 (RLS)**: aunque alguien llamara directo a la API, sin el rol no puede leer ni modificar esos
 datos. Los administradores se crean como en [4.5](#45-crear-el-primer-administrador).
 
 ### Entrar en local
 
 `pnpm dev`, abrir http://localhost:3000/admin e ingresar con **`admin@example.com`** /
-**`admin-local-12345`** (tiene ambos roles; solo existe en local). Para probar «¿Olvidaste tu
+**`admin-local-12345`** (roles `sitio` y `pacientes`) o con **`cuidador@example.com`** /
+**`cuidador-local-12345`** (solo ve fichas). Solo existen en local, junto a dos pacientes
+ficticios. Para probar «¿Olvidaste tu
 contraseña?», el correo se ve en Mailpit (http://127.0.0.1:54324); el enlace apunta a
 `http://localhost:3000` (`site_url` de `supabase/config.toml`).
 
@@ -495,7 +506,59 @@ contraseña?», el correo se ve en Mailpit (http://127.0.0.1:54324); el enlace a
 | Aviso por correo cada vez que cambia la contraseña                     | Cambios que la persona no hizo              |
 | `noindex` (metadata + cabecera `X-Robots-Tag`) y `robots.txt`          | Que el panel aparezca en buscadores         |
 
-### Agregar un módulo (agenda, inventario, pacientes)
+### Fichas de pacientes
+
+Contienen datos de salud, que la ley chilena considera **datos sensibles**. Cada ficha tiene:
+identificación (nombre, RUT, fecha de nacimiento, sexo), estadía (ingreso, habitación), salud
+general (alergias, previsión, médico tratante), deterioro cognitivo (grado y detalle),
+observaciones, contacto de emergencia y **medicamentos**:
+
+- **Programados:** dosis, horas y días (por defecto todos; sirve para los semanales). La ficha
+  los muestra ordenados por hora: «¿qué le toca a esta hora?».
+- **Situacionales:** se dan solo ante una situación, que es obligatorio indicar (ej: «dolor o
+  fiebre sobre 38 °C»). Se muestran aparte.
+
+**Código QR:** en la ficha → «Código QR» → «Imprimir etiqueta». El QR lleva a
+`/admin/p/<código>`: el código es aleatorio y **no contiene datos del paciente**. Al
+escanearlo con la cámara del celular, si no hay sesión se pide ingresar (correo y contraseña)
+y luego se abre esa ficha. Sin el rol `pacientes` o `pacientes_lectura`, no se ve nada. Si una
+etiqueta se pierde, «Generar nuevo QR» deja inservible la anterior.
+
+**Registro de dosis:** lo hacen ambos roles (los cuidadores son quienes dan los
+medicamentos).
+
+- En la ficha, **«Dosis de hoy»** muestra cada dosis programada del día con su estado:
+  «Toca ahora» (hasta 1 hora antes o después), «Atrasada» (más de 1 hora tarde), «Más tarde»
+  o ya registrada. «Dada» se registra con un toque; «No se dio» pide el motivo (rechazó,
+  dormido, ausente, sin medicamento, indicación médica u otro).
+- **Situacionales:** «Registrar dosis», con la situación que la motivó; se ve cuándo fue la
+  última.
+- **Ronda** (`/admin/pacientes/ronda`, botón en «Pacientes»): las dosis de todos los residentes
+  por hora, con las atrasadas primero. El inicio del panel resume las atrasadas del día.
+- Pasada la medianoche, las dosis de las últimas 6 horas siguen a la vista, para el turno de
+  noche.
+- **«Registro de dosis»** en la ficha: últimos 14 días. Los registros no se editan ni se borran:
+  si hubo un error, se **anulan** con su motivo y quedan a la vista. Puede anularlos quien los
+  hizo o el rol `pacientes`.
+
+| Capa                                                                        | Protege contra                                     |
+| --------------------------------------------------------------------------- | -------------------------------------------------- |
+| RLS: ver con `pacientes` o `pacientes_lectura`; editar solo con `pacientes` | Acceso o cambios de quien no corresponde           |
+| Historial (auditoría) de consultas y cambios, con el valor anterior         | Cambios sin rastro (ej: una dosis modificada)      |
+| El historial lo escribe la base de datos; nadie puede editarlo ni borrarlo  | Borrar las huellas                                 |
+| Las fichas no se borran: se egresan (y se pueden reingresar)                | Pérdida de información                             |
+| QR con código aleatorio, sin datos, y regenerable                           | Filtración por una etiqueta fotografiada o perdida |
+| Nombre del paciente fuera del título de la pestaña                          | Que quede en el historial del navegador            |
+| Checks en la base (RUT, teléfono, horas, días, motivo de los situacionales) | Datos mal formados                                 |
+| Dosis: la base fija quién y cuándo; una dosis se registra una sola vez      | Registros falsos o duplicados                      |
+| Dosis: solo de hoy o de anoche, y a lo más 2 horas antes de su hora         | Registrar dosis que aún no se dan                  |
+| Dosis: no se editan ni se borran; se anulan con motivo                      | Borrar un error sin dejar rastro                   |
+| Quitar un medicamento no borra sus dosis registradas                        | Pérdida del historial de administración            |
+
+Antes de cargar fichas reales, revisa con el abogado el consentimiento del residente o su
+representante y el plazo de conservación (ver el [checklist](#9-checklist-de-seguridad-antes-de-publicar)).
+
+### Agregar un módulo (agenda, inventario, …)
 
 Crear su página en `src/app/(admin)/admin/(panel)/<ruta>/page.tsx`, llamar a
 `requerirRol("pacientes")` (o el rol que corresponda) en ella y en sus servicios, proteger sus
@@ -589,7 +652,8 @@ Además, en todo el sitio: cabeceras de seguridad (CSP, HSTS, `X-Frame-Options`,
       **Password changed** activo; SMTP de Resend configurado.
 - [ ] Probado en producción: ingresar, «¿Olvidaste tu contraseña?», y `/admin` sin sesión
       redirige al login.
-- [ ] Cada administrador tiene solo los roles que necesita.
+- [ ] Cada administrador tiene solo los roles que necesita y su propia cuenta (nunca
+      compartidas): los cuidadores, `pacientes_lectura` (ven fichas y registran dosis).
 
 **Claves y variables**
 
@@ -615,6 +679,9 @@ Además, en todo el sitio: cabeceras de seguridad (CSP, HSTS, `X-Frame-Options`,
       sus datos están completos en el panel. Tras la revisión, quitar el aviso de borrador en
       `src/app/(publico)/privacidad/page.tsx`.
 - [ ] Testimonios reales y con autorización de quien los entregó.
+- [ ] Fichas de pacientes: el abogado revisó el consentimiento del residente (o su
+      representante) para tratar sus datos de salud y el plazo de conservación de las
+      fichas; la política de privacidad lo menciona.
 
 **Cuentas y continuidad**
 

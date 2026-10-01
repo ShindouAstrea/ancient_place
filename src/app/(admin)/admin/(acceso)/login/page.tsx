@@ -8,7 +8,7 @@ import { BotonEnviar } from "@/components/ui/boton-enviar";
 import { Tarjeta } from "@/components/ui/tarjeta";
 import { salir } from "@/server/actions/auth";
 import { obtenerSesion } from "@/server/services/auth";
-import { MOTIVOS_LOGIN, type MotivoLogin } from "@/server/validators/auth";
+import { MOTIVOS_LOGIN, rutaSiguienteSegura, type MotivoLogin } from "@/server/validators/auth";
 
 export const metadata: Metadata = { title: "Ingresar" };
 
@@ -30,11 +30,15 @@ function esMotivo(valor: unknown): valor is MotivoLogin {
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const sesion = await obtenerSesion();
-  if (sesion.activa && sesion.admin) redirect("/admin");
+  const { motivo, siguiente: siguientePedido } = await searchParams;
+  // Adónde ir después de ingresar (ej: la ficha que abrió un QR); solo rutas del panel.
+  const siguiente = rutaSiguienteSegura(siguientePedido);
 
-  const { motivo } = await searchParams;
+  const sesion = await obtenerSesion();
+  if (sesion.activa && sesion.admin) redirect(siguiente ?? "/admin");
+
   const aviso = esMotivo(motivo) ? AVISOS[motivo] : null;
+  const vaAFicha = siguiente?.startsWith("/admin/p/") || siguiente?.startsWith("/admin/pacientes");
 
   return (
     <Tarjeta>
@@ -68,9 +72,13 @@ export default async function LoginPage({ searchParams }: Props) {
         </div>
       ) : (
         <>
-          <p className="mt-2 text-tinta-suave">Ingresa con tu correo y contraseña.</p>
+          <p className="mt-2 text-tinta-suave">
+            {vaAFicha
+              ? "Ingresa con tu correo y contraseña para ver la ficha del paciente."
+              : "Ingresa con tu correo y contraseña."}
+          </p>
           <div className="mt-6">
-            <FormularioAcceso />
+            <FormularioAcceso siguiente={siguiente} />
           </div>
           <p className="mt-4 text-center">
             <Link

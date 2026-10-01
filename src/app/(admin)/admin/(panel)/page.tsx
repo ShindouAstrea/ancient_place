@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { IconoAdmin } from "@/components/admin/icono-admin";
-import { modulosPara, NOMBRES_ROL } from "@/config/admin";
+import { modulosPara, NOMBRES_ROL, ROLES_VER_FICHAS } from "@/config/admin";
 import { cn } from "@/lib/utils/cn";
 import { requerirAdmin } from "@/server/services/auth";
+import { obtenerRonda } from "@/server/services/dosis";
 import { obtenerResumenLeads } from "@/server/services/leads";
 import { ESTADOS_LEAD, ETIQUETAS_ESTADO } from "@/server/validators/leads";
 
@@ -19,6 +20,8 @@ export default async function InicioPanelPage({ searchParams }: Props) {
   const { aviso } = await searchParams;
   const esSitio = admin.roles.includes("sitio");
   const resumen = esSitio ? await obtenerResumenLeads() : null;
+  const veFichas = ROLES_VER_FICHAS.some((r) => admin.roles.includes(r));
+  const ronda = veFichas ? (await obtenerRonda()).dosis : null;
   const modulos = modulosPara(admin.roles);
 
   return (
@@ -28,7 +31,7 @@ export default async function InicioPanelPage({ searchParams }: Props) {
         <p className="mt-1 [overflow-wrap:anywhere] text-tinta-suave">
           Ingresaste como {admin.email}.
           {admin.roles.length > 0
-            ? ` Acceso: ${admin.roles.map((r) => NOMBRES_ROL[r]).join(" y ")}.`
+            ? ` Acceso: ${admin.roles.map((r) => NOMBRES_ROL[r]).join(" · ")}.`
             : null}
         </p>
       </header>
@@ -89,6 +92,38 @@ export default async function InicioPanelPage({ searchParams }: Props) {
               </Link>
             </li>
           </ul>
+        </section>
+      ) : null}
+
+      {ronda ? (
+        <section aria-labelledby="titulo-ronda">
+          <h2 id="titulo-ronda" className="text-2xl font-semibold">
+            Medicamentos de hoy
+          </h2>
+          <Link
+            href="/admin/pacientes/ronda"
+            className={cn(
+              "mt-4 flex items-center gap-4 rounded-2xl border bg-white p-5 shadow-sm hover:border-salvia-700",
+              ronda.some((d) => d.estado === "atrasada") ? "border-terracota" : "border-salvia-200",
+            )}
+          >
+            <span className="grid flex-1 grid-cols-3 gap-2">
+              {[
+                ["Atrasadas", ronda.filter((d) => d.estado === "atrasada").length],
+                ["Toca ahora", ronda.filter((d) => d.estado === "ahora").length],
+                ["Registradas", ronda.filter((d) => d.estado === "registrada").length],
+              ].map(([etiqueta, cantidad]) => (
+                <span key={etiqueta}>
+                  <span className="block font-serif text-3xl font-semibold text-salvia-900">
+                    {cantidad}
+                  </span>
+                  <span className="text-base text-tinta-suave">{etiqueta}</span>
+                </span>
+              ))}
+            </span>
+            <span className="sr-only">Abrir la ronda de medicamentos</span>
+            <ArrowRight className="size-5 shrink-0 text-salvia-700" aria-hidden="true" />
+          </Link>
         </section>
       ) : null}
 

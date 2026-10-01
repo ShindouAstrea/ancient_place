@@ -25,7 +25,7 @@ export default async function PanelLayout({ children }: Readonly<{ children: Rea
         Saltar al contenido
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-salvia-200 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-salvia-200 bg-white/95 backdrop-blur print:hidden">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center gap-3 px-4 sm:px-6">
           <Link
             href="/admin"
@@ -55,7 +55,7 @@ export default async function PanelLayout({ children }: Readonly<{ children: Rea
       <main
         id="contenido"
         tabIndex={-1}
-        className="mx-auto w-full max-w-5xl px-4 pt-6 pb-28 outline-none sm:px-6 lg:pb-12"
+        className="mx-auto w-full max-w-5xl px-4 pt-6 pb-28 outline-none sm:px-6 lg:pb-12 print:p-0"
       >
         {children}
       </main>

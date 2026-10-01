@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 
-import { CampoAreaTexto, CampoTexto, claseControl } from "@/components/ui/campo";
+import { CampoAreaTexto, CampoTexto, claseControl, claseHora } from "@/components/ui/campo";
 import { Icono } from "@/components/ui/icono";
+import { SelectorDias } from "@/components/ui/selector-dias";
 import { ICONOS, NOMBRES_ICONOS } from "@/config/iconos";
-import { DIAS_SEMANA, NOMBRES_DIAS } from "@/lib/utils/horario";
 import { TRAMOS_HORARIO } from "@/server/validators/contenido";
 import type { TramoHorario } from "@/types/contenido";
 
@@ -55,15 +55,6 @@ function CampoIcono({ id, campo, valor, error }: { id: string } & Omit<Props, "p
     </div>
   );
 }
-
-/** "miércoles" → "Mié" */
-const abreviar = (dia: string) => dia.charAt(0).toUpperCase() + dia.slice(1, 3);
-
-/** Como claseControl, pero con menos relleno lateral: dos horas caben lado a lado en 360 px. */
-const claseHora =
-  "block w-full min-w-0 min-h-12 rounded-xl border-2 border-salvia-300 bg-white px-2 py-3 " +
-  "text-lg text-tinta tabular-nums focus:border-salvia-700 focus-visible:outline-offset-1 " +
-  "aria-invalid:border-terracota";
 
 /** Lee el horario guardado (JSON) sin romper el formulario si viniera mal formado. */
 function leerTramos(valor: string): TramoHorario[] {
@@ -116,23 +107,7 @@ function CampoHorario({ id, campo, valor, error }: { id: string } & Omit<Props, 
               Tramo {n}
               {n > 1 ? <span className="font-normal text-tinta-suave"> (opcional)</span> : null}
             </legend>
-            <div className="flex flex-wrap gap-2">
-              {DIAS_SEMANA.map((dia) => (
-                <label key={dia} className="cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name={`tramo${n}_dia_${dia}`}
-                    defaultChecked={tramo?.dias.includes(dia)}
-                    className="peer sr-only"
-                  />
-                  {/* Abreviatura visible; el lector de pantalla lee el nombre completo. */}
-                  <span className="flex min-h-11 min-w-12 items-center justify-center rounded-full border-2 border-salvia-300 bg-white px-3 font-semibold text-tinta-suave peer-checked:border-salvia-700 peer-checked:bg-salvia-700 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-salvia-700">
-                    <span aria-hidden="true">{abreviar(NOMBRES_DIAS[dia] ?? "")}</span>
-                    <span className="sr-only">{NOMBRES_DIAS[dia]}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
+            <SelectorDias prefijo={`tramo${n}_dia_`} marcados={tramo?.dias ?? []} />
             <div className="mt-3 grid grid-cols-2 gap-3">
               {(["desde", "hasta"] as const).map((extremo) => (
                 <div key={extremo} className="flex min-w-0 flex-col gap-1">

@@ -22,6 +22,7 @@ import {
   esquemaRestablecimiento,
   esquemaSolicitudRecuperacion,
   esquemaTokenRecuperacion,
+  rutaSiguienteSegura,
   type CampoCambioContrasena,
   type CampoInicioSesion,
   type CampoRestablecimiento,
@@ -72,7 +73,8 @@ export async function iniciarSesionAccion(
   );
 
   // redirect() fuera de cualquier try/catch: Next.js lo implementa lanzando una excepción.
-  if (resultado.ok) redirect("/admin");
+  // La ruta de regreso se vuelve a validar aquí: el formulario la envía el navegador.
+  if (resultado.ok) redirect(rutaSiguienteSegura(formData.get("siguiente")) ?? "/admin");
 
   return {
     estado: "error",

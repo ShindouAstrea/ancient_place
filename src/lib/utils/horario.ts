@@ -1,6 +1,9 @@
 /** Días de la semana según ISO 8601 (1 = lunes … 7 = domingo). */
 export const DIAS_SEMANA = [1, 2, 3, 4, 5, 6, 7] as const;
 
+/** Hora "HH:MM" en formato 24 h (la base de datos lo exige igual). */
+export const PATRON_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 export const NOMBRES_DIAS: Record<number, string> = {
   1: "lunes",
   2: "martes",
