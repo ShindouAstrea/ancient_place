@@ -111,7 +111,7 @@ select throws_ok(
   '22023', 'correo_invalido', 'la base rechaza un correo inválido');
 select throws_ok(
   $$ select public.crear_usuario('corta@example.com', 'X', '{sitio}', 'corta') $$,
-  '22023', 'contrasena_invalida', 'la base rechaza una contraseña de menos de 12 caracteres');
+  '22023', 'contrasena_invalida', 'la base rechaza una contraseña de menos de 8 caracteres');
 select throws_ok(
   $$ select public.crear_usuario('sinroles@example.com', 'X', '{}', 'temporal-abcd-efgh') $$,
   '22023', 'roles_invalidos', 'la base rechaza una cuenta sin permisos');

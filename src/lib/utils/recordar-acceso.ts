@@ -2,8 +2,8 @@
  * «Recordar mis datos en este dispositivo» (ingreso al panel), del lado del navegador:
  * - El correo y la preferencia se guardan en localStorage. La contraseña, NUNCA: la guarda
  *   el gestor de contraseñas del navegador (cifrada), si la persona acepta. En Chrome, Edge
- *   y Android se le pide con la Credential Management API; Safari y Firefox lo ofrecen por
- *   su cuenta al ingresar.
+ *   y Android se le pide guardarla, y se le pide de vuelta al volver a ingresar, con la
+ *   Credential Management API; Safari y Firefox lo ofrecen y la completan por su cuenta.
  * - La duración de la sesión la decide el servidor (ver lib/supabase/config.ts).
  */
 
@@ -64,6 +64,26 @@ async function guardarEnNavegador(credencial: Credential | null) {
     await navigator.credentials.store(credencial);
   } catch {
     // El navegador puede negarse (ej: la persona desactivó el gestor): no es un error.
+  }
+}
+
+/**
+ * Pide al gestor del navegador la contraseña guardada para este sitio (solo Chromium). Con
+ * una sola cuenta guardada la entrega sin preguntar; con varias, muestra su selector.
+ * Devuelve null si no hay ninguna, si la persona cierra el selector o si el navegador no
+ * tiene esta API (ahí queda su autocompletado habitual).
+ */
+export async function credencialGuardada(): Promise<{ correo: string; contrasena: string } | null> {
+  if (!("PasswordCredential" in window) || !navigator.credentials) return null;
+  try {
+    const credencial = (await navigator.credentials.get({
+      password: true,
+      mediation: "optional",
+    } as CredentialRequestOptions)) as (Credential & { password?: string }) | null;
+    if (credencial?.type !== "password" || !credencial.password) return null;
+    return { correo: credencial.id, contrasena: credencial.password };
+  } catch {
+    return null;
   }
 }
 

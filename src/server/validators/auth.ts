@@ -31,8 +31,11 @@ export type EstadoInicioSesion =
       limpiarContrasena?: boolean;
     };
 
-/** Largo mínimo de contraseña: debe coincidir con Supabase (config.toml y Dashboard). */
-export const LARGO_MINIMO_CONTRASENA = 12;
+/**
+ * Largo mínimo de contraseña: debe coincidir con Supabase (config.toml y Dashboard) y con
+ * privado.validar_contrasena() en la base de datos.
+ */
+export const LARGO_MINIMO_CONTRASENA = 8;
 
 const campoNuevaContrasena = z
   .string()

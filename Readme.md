@@ -226,7 +226,7 @@ funcionar (fallan de forma cerrada) y el servidor lo registra en los logs (códi
 
 1. **Registro público:** Authentication → Sign In / Providers → desactivar **Allow new users
    to sign up**. Mantener habilitado el proveedor **Email** (lo usa el ingreso con contraseña).
-2. **Largo mínimo de contraseña:** en el proveedor Email, **Minimum password length** = `12`.
+2. **Largo mínimo de contraseña:** en el proveedor Email, **Minimum password length** = `8`.
    Opcional (plan Pro): activar **Prevent use of leaked passwords**.
 3. **Site URL:** Authentication → URL Configuration → **Site URL** = la dirección pública del
    sitio, sin `/` al final (ej: `https://dominio.cl`, o la de Vercel mientras no haya
@@ -274,7 +274,7 @@ Las siguientes se crean desde el panel, en **Usuarios** (`/admin/usuarios`, ver
 [Usuarios](#usuarios)).
 
 1. Supabase Dashboard → **Authentication → Users → Add user → Create new user**: correo,
-   contraseña (12 caracteres o más) y marcar **Auto Confirm User**.
+   contraseña (8 caracteres o más) y marcar **Auto Confirm User**.
 2. SQL Editor:
    ```sql
    insert into public.admins (user_id, email, nombre)
@@ -504,7 +504,9 @@ ve en Mailpit (http://127.0.0.1:54324); el enlace apunta a `http://localhost:300
 
 Casilla del ingreso. **Marcada:** el navegador recuerda el correo, ofrece guardar la contraseña
 en su gestor de contraseñas (cifrada; el sitio nunca la guarda) y la sesión dura **30 días
-desde el último uso**. **Sin marcar:** la sesión se cierra al cerrar el navegador (útil en
+desde el último uso**. La contraseña solo se completa sola si la persona **acepta** ese
+ofrecimiento del navegador: en Chrome, Edge y Android el ingreso se la pide de vuelta al gestor;
+en Safari y Firefox la completa el autocompletado del navegador. **Sin marcar:** la sesión se cierra al cerrar el navegador (útil en
 equipos compartidos) y se olvida el correo guardado. Ojo: si el navegador está configurado
 para «continuar donde lo dejaste», puede conservar la sesión aunque se cierre; en un equipo
 compartido, usa siempre **Salir**.
@@ -514,7 +516,7 @@ compartido, usa siempre **Salir**.
 | Capa                                                                    | Protege contra                                 |
 | ----------------------------------------------------------------------- | ---------------------------------------------- |
 | Registro público deshabilitado                                          | Que cualquiera cree una cuenta                 |
-| Contraseñas de 12 caracteres o más                                      | Contraseñas fáciles de adivinar                |
+| Contraseñas de 8 caracteres o más                                       | Contraseñas fáciles de adivinar                |
 | Rate limit: 10 intentos por hora por IP                                 | Probar contraseñas por fuerza bruta            |
 | CAPTCHA (Turnstile) opcional, verificado por Supabase                   | Intentos automatizados                         |
 | Mismo mensaje si el correo no existe o la contraseña es incorrecta      | Averiguar qué correos tienen cuenta            |
@@ -680,7 +682,7 @@ Además, en todo el sitio: cabeceras de seguridad (CSP, HSTS, `X-Frame-Options`,
 
 **Auth y panel**
 
-- [ ] Registro público deshabilitado; proveedor Email activo; mínimo 12 caracteres (4.4).
+- [ ] Registro público deshabilitado; proveedor Email activo; mínimo 8 caracteres (4.4).
 - [ ] Site URL = dominio definitivo; plantilla **Reset Password** reemplazada; aviso
       **Password changed** activo; SMTP de Resend configurado.
 - [ ] Probado en producción: ingresar, «¿Olvidaste tu contraseña?», y `/admin` sin sesión

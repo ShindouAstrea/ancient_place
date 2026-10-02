@@ -16,6 +16,7 @@ import { CampoContrasena } from "@/components/ui/campo-contrasena";
 import { Turnstile } from "@/components/ui/turnstile";
 import { captcha } from "@/lib/env";
 import {
+  credencialGuardada,
   datosRecordados,
   descartarCredencial,
   guardarPreferencia,
@@ -63,6 +64,18 @@ export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
     const { recordar, correo } = datosRecordados();
     if (refRecordar.current) refRecordar.current.checked = recordar;
     if (refCorreo.current && !refCorreo.current.value) refCorreo.current.value = correo;
+    if (!recordar) return;
+    // La contraseña la entrega el gestor del navegador, si la persona aceptó guardarla.
+    void credencialGuardada().then((credencial) => {
+      const campoCorreo = refCorreo.current;
+      const campoContrasena = refContrasena.current;
+      if (!credencial || !campoCorreo || !campoContrasena) return;
+      // No pisa lo que la persona haya escrito mientras tanto.
+      if (campoContrasena.value) return;
+      if (campoCorreo.value && campoCorreo.value !== correo) return;
+      campoCorreo.value = credencial.correo;
+      campoContrasena.value = credencial.contrasena;
+    });
   }, []);
 
   // Tras la respuesta del servidor: vaciar la contraseña si era incorrecta y mover el foco.
@@ -152,9 +165,9 @@ export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
           Recordar mis datos en este dispositivo
         </CampoCasilla>
         <p id="recordar-ayuda" className="pl-10 text-base text-tinta-suave">
-          Guarda tu correo, ofrece guardar la contraseña en el navegador y mantiene la sesión
-          abierta 30 días. Sin marcarla, la sesión se cierra al cerrar el navegador. No la marques
-          en un equipo compartido.
+          Guarda tu correo y mantiene la sesión abierta 30 días. Para no volver a escribir la
+          contraseña, acepta cuando el navegador ofrezca guardarla. Sin marcarla, la sesión se
+          cierra al cerrar el navegador. No la marques en un equipo compartido.
         </p>
       </div>
 
