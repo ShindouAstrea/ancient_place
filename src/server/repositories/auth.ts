@@ -1,5 +1,8 @@
 import "server-only";
 
+import { cookies } from "next/headers";
+
+import { COOKIE_SESION_TEMPORAL, opcionesCookieAuth } from "@/lib/supabase/config";
 import { crearClienteServidor } from "@/lib/supabase/server";
 import { crearClienteSinSesion } from "@/lib/supabase/sin-sesion";
 import type { Database } from "@/types/database";
@@ -8,7 +11,14 @@ import { ErrorRepositorio } from "./errores";
 
 export type RolAdmin = Database["public"]["Enums"]["rol_admin"];
 
-export type Administrador = { id: string; email: string; roles: RolAdmin[] };
+export type Administrador = {
+  id: string;
+  email: string;
+  nombre: string;
+  roles: RolAdmin[];
+  /** Ingresó con una contraseña temporal que aún no cambia: solo puede ir a «Mi cuenta». */
+  contrasenaTemporal: boolean;
+};
 
 /** Sesión actual: sin sesión, con sesión de administrador o con sesión sin ese rol. */
 export type SesionActual = { activa: false } | { activa: true; admin: Administrador | null };
@@ -18,9 +28,9 @@ export type SesionActual = { activa: false } | { activa: true; admin: Administra
  *
  * Usa getUser(), que consulta al servidor de Auth, y no getClaims(), que solo valida
  * la firma del token localmente: así una sesión cerrada desde otro dispositivo (por
- * ejemplo, al cambiar la contraseña) o una cuenta eliminada pierde el acceso al
- * panel de inmediato, y no recién cuando vence el token (hasta 1 hora).
- * is_admin() consulta la tabla admins.
+ * ejemplo, al cambiar la contraseña o al desactivar la cuenta) o una cuenta eliminada
+ * pierde el acceso al panel de inmediato, y no recién cuando vence el token (hasta 1 hora).
+ * mi_cuenta() no devuelve nada si la cuenta no está en admins o está desactivada.
  */
 export async function obtenerSesionActual(): Promise<SesionActual> {
   const supabase = await crearClienteServidor();
@@ -29,17 +39,19 @@ export async function obtenerSesionActual(): Promise<SesionActual> {
   const usuario = data?.user;
   if (error || !usuario) return { activa: false };
 
-  const { data: esAdmin, error: errorRol } = await supabase.rpc("is_admin");
-  if (errorRol) throw new ErrorRepositorio("is_admin", errorRol.code);
-  if (!esAdmin) return { activa: true, admin: null };
-
-  // RLS solo deja ver los roles propios.
-  const { data: roles, error: errorRoles } = await supabase.from("admin_roles").select("rol");
-  if (errorRoles) throw new ErrorRepositorio("admin_roles", errorRoles.code);
+  const { data: cuenta, error: errorCuenta } = await supabase.rpc("mi_cuenta").maybeSingle();
+  if (errorCuenta) throw new ErrorRepositorio("mi_cuenta", errorCuenta.code);
+  if (!cuenta) return { activa: true, admin: null };
 
   return {
     activa: true,
-    admin: { id: usuario.id, email: usuario.email ?? "", roles: roles.map((r) => r.rol) },
+    admin: {
+      id: usuario.id,
+      email: usuario.email ?? "",
+      nombre: cuenta.nombre,
+      roles: cuenta.roles,
+      contrasenaTemporal: cuenta.contrasena_temporal,
+    },
   };
 }
 
@@ -62,13 +74,24 @@ export type ResultadoInicioSesion =
  * - La verificación del rol usa la MISMA conexión que acaba de iniciar la sesión: las
  *   cookies nuevas aún no son legibles en esta petición. Si el usuario no es
  *   administrador, esa sesión se cierra de inmediato y nunca queda activa.
+ * - recordar: con «Recordar mis datos», la sesión dura 30 días desde el último uso; sin
+ *   ella, sus cookies se borran al cerrar el navegador (marca COOKIE_SESION_TEMPORAL).
  */
 export async function iniciarSesionConContrasena(
   email: string,
   contrasena: string,
   tokenCaptcha: string,
+  recordar: boolean,
 ): Promise<ResultadoInicioSesion> {
-  const supabase = await crearClienteServidor();
+  const almacenCookies = await cookies();
+  if (recordar) {
+    almacenCookies.delete(COOKIE_SESION_TEMPORAL);
+  } else {
+    // Sin maxAge ni expires: cookie de sesión, como las de Auth que acompaña.
+    const { httpOnly, secure, sameSite, path } = opcionesCookieAuth;
+    almacenCookies.set(COOKIE_SESION_TEMPORAL, "1", { httpOnly, secure, sameSite, path });
+  }
+  const supabase = await crearClienteServidor({ sesionTemporal: !recordar });
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -80,6 +103,9 @@ export async function iniciarSesionConContrasena(
     switch (error.code) {
       // Supabase responde lo mismo si el correo no existe o si la contraseña es incorrecta.
       case "invalid_credentials":
+      // Cuenta desactivada desde el panel. Supabase lo informa aunque la contraseña sea
+      // incorrecta: un mensaje propio revelaría qué correos tienen cuenta.
+      case "user_banned":
         return { tipo: "credenciales-invalidas" };
       case "email_not_confirmed":
         return { tipo: "no-confirmada" };
@@ -265,4 +291,5 @@ export async function restablecerConEnlace(
 export async function cerrarSesion(): Promise<void> {
   const supabase = await crearClienteServidor();
   await supabase.auth.signOut({ scope: "local" });
+  (await cookies()).delete(COOKIE_SESION_TEMPORAL);
 }

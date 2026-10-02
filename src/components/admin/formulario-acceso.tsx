@@ -11,10 +11,16 @@ import {
 } from "react";
 
 import { Boton } from "@/components/ui/boton";
-import { CampoTexto } from "@/components/ui/campo";
+import { CampoCasilla, CampoTexto } from "@/components/ui/campo";
 import { CampoContrasena } from "@/components/ui/campo-contrasena";
 import { Turnstile } from "@/components/ui/turnstile";
 import { captcha } from "@/lib/env";
+import {
+  datosRecordados,
+  descartarCredencial,
+  guardarPreferencia,
+  prepararCredencial,
+} from "@/lib/utils/recordar-acceso";
 import { iniciarSesionAccion } from "@/server/actions/auth";
 import {
   esquemaInicioSesion,
@@ -42,15 +48,28 @@ export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
   const [reinicioTurnstile, setReinicioTurnstile] = useState(0);
 
   const refAlerta = useRef<HTMLDivElement>(null);
+  const refCorreo = useRef<HTMLInputElement>(null);
   const refContrasena = useRef<HTMLInputElement>(null);
+  const refRecordar = useRef<HTMLInputElement>(null);
 
   const errores = erroresCliente ?? (estado.estado === "error" ? (estado.errores ?? {}) : {});
   const mensajeGeneral =
     avisoCliente ?? (estado.estado === "error" && !estado.errores ? estado.mensaje : null);
 
+  // «Recordar mis datos»: la preferencia y el correo guardados en este navegador. Se leen
+  // al montar (localStorage no existe en el servidor). No pisa lo que ya autocompletó el
+  // navegador.
+  useEffect(() => {
+    const { recordar, correo } = datosRecordados();
+    if (refRecordar.current) refRecordar.current.checked = recordar;
+    if (refCorreo.current && !refCorreo.current.value) refCorreo.current.value = correo;
+  }, []);
+
   // Tras la respuesta del servidor: vaciar la contraseña si era incorrecta y mover el foco.
   useEffect(() => {
     if (estado.estado !== "error") return;
+    // El ingreso falló: esa contraseña no se ofrece para guardar.
+    descartarCredencial();
     if (estado.limpiarContrasena && refContrasena.current) {
       refContrasena.current.value = "";
       refContrasena.current.focus();
@@ -94,6 +113,11 @@ export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
 
     setErroresCliente(null);
     setAvisoCliente(null);
+    const recordar = formData.get("recordar") === "on";
+    guardarPreferencia(recordar, validacion.data.email);
+    // Se ofrece al gestor de contraseñas recién al llegar al panel (ingreso exitoso).
+    if (recordar) prepararCredencial(validacion.data.email, validacion.data.password);
+    else descartarCredencial();
     startTransition(() => accion(formData));
     // El token de Turnstile es de un solo uso: se pide uno nuevo para un reintento.
     setReinicioTurnstile((n) => n + 1);
@@ -103,6 +127,7 @@ export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
     <form onSubmit={alEnviar} noValidate aria-busy={enviando} className="flex flex-col gap-5">
       {siguiente ? <input type="hidden" name="siguiente" value={siguiente} /> : null}
       <CampoTexto
+        ref={refCorreo}
         id="email"
         etiqueta="Correo electrónico"
         type="email"
@@ -121,6 +146,17 @@ export function FormularioAcceso({ siguiente }: { siguiente?: string | null }) {
         error={errores.password}
         onChange={() => erroresCliente?.password && setErroresCliente(null)}
       />
+
+      <div className="flex flex-col gap-1">
+        <CampoCasilla ref={refRecordar} id="recordar" aria-describedby="recordar-ayuda">
+          Recordar mis datos en este dispositivo
+        </CampoCasilla>
+        <p id="recordar-ayuda" className="pl-10 text-base text-tinta-suave">
+          Guarda tu correo, ofrece guardar la contraseña en el navegador y mantiene la sesión
+          abierta 30 días. Sin marcarla, la sesión se cierra al cerrar el navegador. No la marques
+          en un equipo compartido.
+        </p>
+      </div>
 
       {captcha.activo ? (
         <Turnstile

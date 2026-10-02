@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, CircleCheck, KeyRound, LoaderCircle } from "lucide-react";
+import Link from "next/link";
 import {
   startTransition,
   useActionState,
@@ -10,10 +11,11 @@ import {
   type FormEvent,
 } from "react";
 
-import { Boton } from "@/components/ui/boton";
+import { Boton, clasesBoton } from "@/components/ui/boton";
 import { CampoContrasena } from "@/components/ui/campo-contrasena";
 import { Turnstile } from "@/components/ui/turnstile";
 import { captcha } from "@/lib/env";
+import { actualizarCredencial } from "@/lib/utils/recordar-acceso";
 import { cambiarContrasenaAccion } from "@/server/actions/auth";
 import {
   LARGO_MINIMO_CONTRASENA,
@@ -31,14 +33,25 @@ function enfocarPrimerError(errores: Partial<Record<CampoCambioContrasena, strin
   if (campo) document.getElementById(campo)?.focus();
 }
 
-/** Tras un cambio exitoso, "Aceptar" vuelve a montar el formulario vacío. */
-export function FormularioContrasena() {
+/**
+ * Tras un cambio exitoso, "Aceptar" vuelve a montar el formulario vacío. `email` identifica
+ * la cuenta ante el gestor de contraseñas del navegador.
+ */
+export function FormularioContrasena({ email }: { email: string }) {
   const [instancia, setInstancia] = useState(0);
-  return <FormularioInterno key={instancia} onReiniciar={() => setInstancia((n) => n + 1)} />;
+  return (
+    <FormularioInterno
+      key={instancia}
+      email={email}
+      onReiniciar={() => setInstancia((n) => n + 1)}
+    />
+  );
 }
 
-function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
+function FormularioInterno({ email, onReiniciar }: { email: string; onReiniciar: () => void }) {
   const [estado, accion, enviando] = useActionState(cambiarContrasenaAccion, ESTADO_INICIAL);
+  // La nueva contraseña, solo en memoria, hasta saber si se guardó (para el navegador).
+  const refNueva = useRef<string | null>(null);
   const [erroresCliente, setErroresCliente] = useState<Partial<
     Record<CampoCambioContrasena, string>
   > | null>(null);
@@ -57,12 +70,18 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
     avisoCliente ?? (estado.estado === "error" && !estado.errores ? estado.mensaje : null);
 
   useEffect(() => {
-    if (estado.estado === "exito") refExito.current?.focus();
+    const nueva = refNueva.current;
+    refNueva.current = null;
+    if (estado.estado === "exito") {
+      refExito.current?.focus();
+      // Con «Recordar mis datos», actualiza la contraseña guardada en el navegador.
+      if (nueva) void actualizarCredencial(email, nueva);
+    }
     if (estado.estado === "error") {
       if (estado.errores) enfocarPrimerError(estado.errores);
       else refAlerta.current?.focus();
     }
-  }, [estado]);
+  }, [estado, email]);
 
   function alEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -95,6 +114,7 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
 
     setErroresCliente(null);
     setAvisoCliente(null);
+    refNueva.current = validacion.data.nueva;
     startTransition(() => accion(formData));
     // El token de Turnstile es de un solo uso: se pide uno nuevo para un reintento.
     setReinicioTurnstile((n) => n + 1);
@@ -126,9 +146,14 @@ function FormularioInterno({ onReiniciar }: { onReiniciar: () => void }) {
           Desde ahora ingresa con tu nueva contraseña. Por seguridad, cerramos la sesión en tus
           otros dispositivos; este sigue conectado.
         </p>
-        <Boton variante="secundario" onClick={onReiniciar}>
-          Aceptar
-        </Boton>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin" className={clasesBoton()}>
+            Ir al inicio
+          </Link>
+          <Boton variante="secundario" onClick={onReiniciar}>
+            Aceptar
+          </Boton>
+        </div>
       </div>
     );
   }

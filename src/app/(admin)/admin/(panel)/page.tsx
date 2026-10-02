@@ -27,7 +27,9 @@ export default async function InicioPanelPage({ searchParams }: Props) {
   return (
     <div className="space-y-10">
       <header>
-        <h1 className="text-3xl font-semibold">Hola</h1>
+        <h1 className="text-3xl font-semibold [overflow-wrap:anywhere]">
+          {admin.nombre ? `Hola, ${admin.nombre}` : "Hola"}
+        </h1>
         <p className="mt-1 [overflow-wrap:anywhere] text-tinta-suave">
           Ingresaste como {admin.email}.
           {admin.roles.length > 0

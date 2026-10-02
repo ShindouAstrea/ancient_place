@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { envPublico, envServidor } from "@/lib/env";
 import type { Database } from "@/types/database";
 
-import { opcionesCookieAuth } from "./config";
+import { COOKIE_SESION_TEMPORAL, duracionSegunModo, opcionesCookieAuth } from "./config";
 
 /**
  * Renueva la sesión de Supabase Auth en el proxy de Next.js (antes "middleware").
@@ -20,6 +20,8 @@ export async function actualizarSesion(request: NextRequest) {
   let respuesta = NextResponse.next({ request });
   let cabecerasAntiCache: Record<string, string> = {};
   const url = envServidor().SUPABASE_INTERNAL_URL ?? envPublico.NEXT_PUBLIC_SUPABASE_URL;
+  // Sin «Recordar mis datos»: las cookies renovadas siguen siendo de sesión.
+  const sesionTemporal = request.cookies.has(COOKIE_SESION_TEMPORAL);
 
   const supabase = createServerClient<Database>(
     url,
@@ -34,7 +36,7 @@ export async function actualizarSesion(request: NextRequest) {
           cookiesAGuardar.forEach(({ name, value }) => request.cookies.set(name, value));
           respuesta = NextResponse.next({ request });
           cookiesAGuardar.forEach(({ name, value, options }) =>
-            respuesta.cookies.set(name, value, options),
+            respuesta.cookies.set(name, value, duracionSegunModo(options, sesionTemporal)),
           );
           // Cabeceras anti-caché: evitan que un CDN guarde una respuesta con la
           // cookie de sesión de un usuario y se la entregue a otro.

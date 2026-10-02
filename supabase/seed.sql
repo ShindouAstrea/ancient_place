@@ -62,9 +62,11 @@ begin
     now(), now(), now()
   );
 
-  insert into public.admins (user_id, email) values (v_id, 'admin@example.com');
-  -- Sitio web y contactos + fichas de pacientes (ver y editar).
-  insert into public.admin_roles (user_id, rol) values (v_id, 'sitio'), (v_id, 'pacientes');
+  insert into public.admins (user_id, email, nombre)
+  values (v_id, 'admin@example.com', 'Administración (ejemplo)');
+  -- Sitio web y contactos + fichas de pacientes (ver y editar) + usuarios y permisos.
+  insert into public.admin_roles (user_id, rol)
+  values (v_id, 'sitio'), (v_id, 'pacientes'), (v_id, 'usuarios');
 end;
 $$;
 
@@ -134,7 +136,8 @@ begin
     now(), now(), now()
   );
 
-  insert into public.admins (user_id, email) values (v_id, 'cuidador@example.com');
+  insert into public.admins (user_id, email, nombre)
+  values (v_id, 'cuidador@example.com', 'Cuidador (ejemplo)');
   insert into public.admin_roles (user_id, rol) values (v_id, 'pacientes_lectura');
 end;
 $$;

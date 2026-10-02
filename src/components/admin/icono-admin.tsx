@@ -6,6 +6,7 @@ import {
   House,
   Inbox,
   Package,
+  UsersRound,
   type LucideIcon,
   type LucideProps,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const iconos: Record<NombreIconoAdmin, LucideIcon> = {
   House,
   Inbox,
   Package,
+  UsersRound,
 };
 
 /** Ícono decorativo de un módulo del panel (definido por nombre en config/admin.ts). */

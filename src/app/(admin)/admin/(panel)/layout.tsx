@@ -2,6 +2,7 @@ import { Leaf, LogOut } from "lucide-react";
 import Link from "next/link";
 
 import { NavegacionInferior, NavegacionSuperior } from "@/components/admin/navegacion-admin";
+import { OfrecerCredencial } from "@/components/admin/ofrecer-credencial";
 import { navegacionPara } from "@/config/admin";
 import { BotonEnviar } from "@/components/ui/boton-enviar";
 import { salir } from "@/server/actions/auth";
@@ -13,11 +14,13 @@ import { requerirAdmin } from "@/server/services/auth";
  * no se vuelven a ejecutar al navegar).
  */
 export default async function PanelLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const admin = await requerirAdmin();
-  const navegacion = navegacionPara(admin.roles);
+  // Con una contraseña temporal, la única página disponible es «Mi cuenta» (para cambiarla).
+  const admin = await requerirAdmin({ permitirContrasenaTemporal: true });
+  const navegacion = navegacionPara(admin.contrasenaTemporal ? [] : admin.roles);
 
   return (
     <>
+      <OfrecerCredencial contrasenaTemporal={admin.contrasenaTemporal} />
       <a
         href="#contenido"
         className="sr-only z-50 rounded-full bg-salvia-800 px-5 py-3 font-semibold text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3"

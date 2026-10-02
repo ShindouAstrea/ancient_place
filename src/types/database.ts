@@ -106,18 +106,24 @@ export type Database = {
       };
       admins: {
         Row: {
+          activo: boolean;
           created_at: string;
           email: string;
+          nombre: string;
           user_id: string;
         };
         Insert: {
+          activo?: boolean;
           created_at?: string;
           email: string;
+          nombre?: string;
           user_id: string;
         };
         Update: {
+          activo?: boolean;
           created_at?: string;
           email?: string;
+          nombre?: string;
           user_id?: string;
         };
         Relationships: [];
@@ -156,6 +162,42 @@ export type Database = {
           paciente_id?: string;
           referencia?: string | null;
           tabla?: string | null;
+          usuario_email?: string | null;
+          usuario_id?: string | null;
+        };
+        Relationships: [];
+      };
+      auditoria_usuarios: {
+        Row: {
+          accion: string;
+          antes: Json | null;
+          cuenta_email: string;
+          cuenta_id: string;
+          despues: Json | null;
+          fecha: string;
+          id: number;
+          usuario_email: string | null;
+          usuario_id: string | null;
+        };
+        Insert: {
+          accion: string;
+          antes?: Json | null;
+          cuenta_email: string;
+          cuenta_id: string;
+          despues?: Json | null;
+          fecha?: string;
+          id?: never;
+          usuario_email?: string | null;
+          usuario_id?: string | null;
+        };
+        Update: {
+          accion?: string;
+          antes?: Json | null;
+          cuenta_email?: string;
+          cuenta_id?: string;
+          despues?: Json | null;
+          fecha?: string;
+          id?: never;
           usuario_email?: string | null;
           usuario_id?: string | null;
         };
@@ -621,7 +663,23 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      actualizar_usuario: {
+        Args: {
+          p_nombre: string;
+          p_roles: Database["public"]["Enums"]["rol_admin"][];
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
       anular_administracion: { Args: { p_id: string; p_motivo: string }; Returns: undefined };
+      asignar_contrasena_temporal: {
+        Args: { p_contrasena: string; p_user_id: string };
+        Returns: undefined;
+      };
+      cambiar_estado_usuario: {
+        Args: { p_activo: boolean; p_user_id: string };
+        Returns: undefined;
+      };
       crear_lead: {
         Args: {
           p_consentimiento: boolean;
@@ -634,7 +692,37 @@ export type Database = {
         };
         Returns: string;
       };
+      crear_usuario: {
+        Args: {
+          p_contrasena: string;
+          p_email: string;
+          p_nombre: string;
+          p_roles: Database["public"]["Enums"]["rol_admin"][];
+        };
+        Returns: string;
+      };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      listar_usuarios: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          activo: boolean;
+          contrasena_temporal: boolean;
+          creado_en: string;
+          email: string;
+          nombre: string;
+          roles: Database["public"]["Enums"]["rol_admin"][];
+          ultimo_ingreso: string;
+          user_id: string;
+        }[];
+      };
+      mi_cuenta: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          contrasena_temporal: boolean;
+          nombre: string;
+          roles: Database["public"]["Enums"]["rol_admin"][];
+        }[];
+      };
       puede_editar_fichas: { Args: Record<PropertyKey, never>; Returns: boolean };
       puede_ver_fichas: { Args: Record<PropertyKey, never>; Returns: boolean };
       registrar_consulta_ficha: { Args: { p_paciente_id: string }; Returns: undefined };
@@ -650,7 +738,7 @@ export type Database = {
       motivo_omision:
         "rechazo" | "dormido" | "ausente" | "sin_stock" | "indicacion_medica" | "otro";
       resultado_dosis: "administrada" | "omitida";
-      rol_admin: "sitio" | "pacientes" | "pacientes_lectura";
+      rol_admin: "sitio" | "pacientes" | "pacientes_lectura" | "usuarios";
       sexo_paciente: "femenino" | "masculino" | "otro";
     };
     CompositeTypes: {
@@ -767,7 +855,7 @@ export const Constants = {
       grado_deterioro: ["no_evaluado", "sin_deterioro", "leve", "moderado", "severo"],
       motivo_omision: ["rechazo", "dormido", "ausente", "sin_stock", "indicacion_medica", "otro"],
       resultado_dosis: ["administrada", "omitida"],
-      rol_admin: ["sitio", "pacientes", "pacientes_lectura"],
+      rol_admin: ["sitio", "pacientes", "pacientes_lectura", "usuarios"],
       sexo_paciente: ["femenino", "masculino", "otro"],
     },
   },

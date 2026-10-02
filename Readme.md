@@ -269,34 +269,29 @@ funcionar (fallan de forma cerrada) y el servidor lo registra en los logs (códi
 
 ### 4.5 Crear el primer administrador
 
+Solo la **primera** cuenta se crea a mano (alguien tiene que poder entrar a crear las demás).
+Las siguientes se crean desde el panel, en **Usuarios** (`/admin/usuarios`, ver
+[Usuarios](#usuarios)).
+
 1. Supabase Dashboard → **Authentication → Users → Add user → Create new user**: correo,
    contraseña (12 caracteres o más) y marcar **Auto Confirm User**.
-2. SQL Editor (elige los roles que correspondan; ver [Roles](#roles)):
+2. SQL Editor:
    ```sql
-   insert into public.admins (user_id, email)
-   select id, email from auth.users where email = 'persona@dominio.cl';
+   insert into public.admins (user_id, email, nombre)
+   select id, email, 'Tu nombre' from auth.users where email = 'persona@dominio.cl';
 
-   -- Sitio web y contactos:
+   -- Todos los roles: usuarios y permisos, sitio web y contactos, fichas (ver y editar).
    insert into public.admin_roles (user_id, rol)
-   select user_id, 'sitio' from public.admins where email = 'persona@dominio.cl';
-
-   -- Fichas de pacientes, ver y editar (enfermería, administración):
-   insert into public.admin_roles (user_id, rol)
-   select user_id, 'pacientes' from public.admins where email = 'persona@dominio.cl';
-
-   -- Fichas de pacientes, ver y registrar dosis, sin editar (cuidadores):
-   insert into public.admin_roles (user_id, rol)
-   select user_id, 'pacientes_lectura' from public.admins where email = 'persona@dominio.cl';
+   select user_id, r::public.rol_admin
+   from public.admins, unnest(array['usuarios', 'sitio', 'pacientes']) as r
+   where email = 'persona@dominio.cl';
    ```
 
-Crear el usuario no basta: sin la fila en `admins`, el login responde "Esta cuenta no tiene
-acceso al panel"; y sin roles entra al panel pero no ve ningún módulo. Los administradores
-siguientes se crean igual. **Cada persona debe tener su propia cuenta** (nunca compartidas):
-así el historial de las fichas indica quién hizo cada cosa.
+Si ya tenías administradores antes de que existiera la gestión de usuarios, la migración le
+dio el rol `usuarios` a quienes tenían `sitio` y `pacientes`: no hace falta repetir esto.
 
-- Quitar un rol: `delete from public.admin_roles where rol = 'pacientes' and user_id = (select user_id from public.admins where email = 'persona@dominio.cl');`
-- Quitar todo el acceso: `delete from public.admins where email = 'persona@dominio.cl';` (sus
-  roles se borran solos; opcionalmente borra también el usuario en Authentication → Users).
+**Cada persona debe tener su propia cuenta** (nunca compartidas): así el historial de las
+fichas indica quién hizo cada cosa.
 
 ### 4.6 Desplegar en Vercel
 
@@ -446,6 +441,7 @@ docker run --rm -p 3000:3000 --env-file .env.production.local hogar-web:latest
 | `/admin/pacientes`       | Fichas de residentes: datos, medicamentos, dosis, QR e historial   |
 | `/admin/pacientes/ronda` | Ronda: dosis de hoy de todos los residentes, por hora              |
 | `/admin/p/<código>`      | Destino del QR de una ficha: pide ingresar y abre la ficha         |
+| `/admin/usuarios`        | Usuarios: crear cuentas, asignar permisos, desactivarlas           |
 | `/admin/cuenta`          | Mi cuenta: cambiar la contraseña                                   |
 
 ### Roles
@@ -455,19 +451,43 @@ docker run --rm -p 3000:3000 --env-file .env.production.local hogar-web:latest
 | `sitio`             | **Sitio web** (todo el contenido público) y **Contactos** del formulario                 |
 | `pacientes`         | **Fichas de pacientes: ver y editar**, y su historial (Agenda, Inventario: próximamente) |
 | `pacientes_lectura` | **Fichas de pacientes: ver y registrar dosis**, sin editar (ej: cuidadores)              |
+| `usuarios`          | **Usuarios y permisos**: crear cuentas, asignar roles, desactivarlas                     |
 
 Una persona puede tener varios roles. Cada rol se exige en el panel **y en la base de datos
 (RLS)**: aunque alguien llamara directo a la API, sin el rol no puede leer ni modificar esos
-datos. Los administradores se crean como en [4.5](#45-crear-el-primer-administrador).
+datos. Las cuentas se crean desde [Usuarios](#usuarios); solo la primera, por SQL
+([4.5](#45-crear-el-primer-administrador)).
+
+### Usuarios
+
+En el inicio del panel → **Usuarios** (rol `usuarios`; no ocupa lugar en el menú porque se usa
+poco). Desde ahí:
+
+- **Nueva cuenta:** correo, nombre y permisos. Al crearla, el panel muestra una **contraseña
+  temporal** (una sola vez) para entregarle a la persona en persona o por un mensaje privado.
+  Al ingresar con ella, el panel la lleva a «Mi cuenta» a elegir una propia; hasta entonces
+  la base de datos no le muestra nada.
+- **Nombre y permisos:** se cambian en la cuenta. El correo no se puede cambiar (si está mal,
+  desactívala y crea otra).
+- **Dar contraseña temporal:** para quien olvidó la suya y no le llega el correo de
+  recuperación. La anterior deja de funcionar y se cierra su sesión en todos sus dispositivos.
+- **Desactivar:** no puede ingresar y se cierra su sesión en todos sus dispositivos. La cuenta
+  no se borra (el historial de las fichas sigue indicando quién hizo cada cosa) y se puede
+  reactivar con los mismos permisos.
+- **Historial de cambios:** quién creó la cuenta, cambió sus permisos, la desactivó o le dio
+  una contraseña temporal, y cuándo.
+
+Nadie puede desactivar su propia cuenta, quitarse el rol `usuarios` ni darse una contraseña
+temporal: así siempre queda al menos una persona que administra usuarios.
 
 ### Entrar en local
 
 `pnpm dev`, abrir http://localhost:3000/admin e ingresar con **`admin@example.com`** /
-**`admin-local-12345`** (roles `sitio` y `pacientes`) o con **`cuidador@example.com`** /
-**`cuidador-local-12345`** (solo ve fichas). Solo existen en local, junto a dos pacientes
-ficticios. Para probar «¿Olvidaste tu
-contraseña?», el correo se ve en Mailpit (http://127.0.0.1:54324); el enlace apunta a
-`http://localhost:3000` (`site_url` de `supabase/config.toml`).
+**`admin-local-12345`** (roles `sitio`, `pacientes` y `usuarios`) o con
+**`cuidador@example.com`** / **`cuidador-local-12345`** (solo ve fichas). Solo existen en
+local, junto a dos pacientes ficticios. Para probar «¿Olvidaste tu contraseña?», el correo se
+ve en Mailpit (http://127.0.0.1:54324); el enlace apunta a `http://localhost:3000`
+(`site_url` de `supabase/config.toml`).
 
 ### Contraseñas
 
@@ -477,34 +497,47 @@ contraseña?», el correo se ve en Mailpit (http://127.0.0.1:54324); el enlace a
   recibe un enlace (vence en 1 hora, sirve una sola vez), elige una nueva y se cierran sus
   sesiones en todos los dispositivos. Requiere los pasos 3 a 5 de
   [4.4](#44-configurar-supabase-auth).
-- Último recurso (si el correo no llega): en el SQL Editor se le asigna una contraseña
-  temporal (Supabase la guarda cifrada con bcrypt) y la persona la cambia en Mi cuenta:
-  ```sql
-  update auth.users
-  set encrypted_password = extensions.crypt('<NUEVA_CONTRASEÑA>', extensions.gen_salt('bf'))
-  where email = 'persona@dominio.cl';
-  ```
+- Si el correo no llega: quien tenga el rol `usuarios` le da una **contraseña temporal** desde
+  [Usuarios](#usuarios).
+
+### «Recordar mis datos en este dispositivo»
+
+Casilla del ingreso. **Marcada:** el navegador recuerda el correo, ofrece guardar la contraseña
+en su gestor de contraseñas (cifrada; el sitio nunca la guarda) y la sesión dura **30 días
+desde el último uso**. **Sin marcar:** la sesión se cierra al cerrar el navegador (útil en
+equipos compartidos) y se olvida el correo guardado. Ojo: si el navegador está configurado
+para «continuar donde lo dejaste», puede conservar la sesión aunque se cierre; en un equipo
+compartido, usa siempre **Salir**.
 
 ### Capas de seguridad del acceso
 
-| Capa                                                                   | Protege contra                              |
-| ---------------------------------------------------------------------- | ------------------------------------------- |
-| Registro público deshabilitado                                         | Que cualquiera cree una cuenta              |
-| Contraseñas de 12 caracteres o más                                     | Contraseñas fáciles de adivinar             |
-| Rate limit: 10 intentos por hora por IP                                | Probar contraseñas por fuerza bruta         |
-| CAPTCHA (Turnstile) opcional, verificado por Supabase                  | Intentos automatizados                      |
-| Mismo mensaje si el correo no existe o la contraseña es incorrecta     | Averiguar qué correos tienen cuenta         |
-| Rol en la tabla `admins`, verificado en cada página y acción, más RLS  | Cuentas sin rol de administrador            |
-| Roles `sitio` / `pacientes` exigidos por RLS                           | Ver o editar lo que no corresponde          |
-| Cookie de sesión `httpOnly`                                            | Robo de la sesión mediante XSS              |
-| Sesión verificada contra el servidor de Auth en cada página            | Seguir usando una sesión ya cerrada         |
-| Cambio de contraseña exige la actual y cierra los otros dispositivos   | Uso de un celular con sesión abierta        |
-| Recuperación: 5 solicitudes por hora por IP y misma respuesta siempre  | Envío masivo de correos y sondeo de cuentas |
-| Enlace de recuperación de un solo uso, vence en 1 hora                 | Reuso de un enlace viejo                    |
-| Abrir el enlace no lo gasta: se canjea recién al guardar la contraseña | Filtros de correo que abren enlaces         |
-| Al restablecer se cierran las sesiones en **todos** los dispositivos   | Que un intruso siga dentro                  |
-| Aviso por correo cada vez que cambia la contraseña                     | Cambios que la persona no hizo              |
-| `noindex` (metadata + cabecera `X-Robots-Tag`) y `robots.txt`          | Que el panel aparezca en buscadores         |
+| Capa                                                                    | Protege contra                                 |
+| ----------------------------------------------------------------------- | ---------------------------------------------- |
+| Registro público deshabilitado                                          | Que cualquiera cree una cuenta                 |
+| Contraseñas de 12 caracteres o más                                      | Contraseñas fáciles de adivinar                |
+| Rate limit: 10 intentos por hora por IP                                 | Probar contraseñas por fuerza bruta            |
+| CAPTCHA (Turnstile) opcional, verificado por Supabase                   | Intentos automatizados                         |
+| Mismo mensaje si el correo no existe o la contraseña es incorrecta      | Averiguar qué correos tienen cuenta            |
+| Rol en la tabla `admins`, verificado en cada página y acción, más RLS   | Cuentas sin rol de administrador               |
+| Roles exigidos por RLS (`tiene_rol`)                                    | Ver o editar lo que no corresponde             |
+| Cuentas creadas por funciones de la base que exigen el rol `usuarios`   | Crear cuentas o darse permisos sin el rol      |
+| Sin `service_role key` en la aplicación                                 | Que una filtración dé acceso a todos los datos |
+| Contraseña temporal: generada al azar, se muestra una vez, no se guarda | Contraseñas débiles o reutilizadas             |
+| Con contraseña temporal, la base no reconoce roles hasta cambiarla      | Que alguien más use la que se entregó          |
+| Desactivar cierra todas sus sesiones y bloquea el ingreso en Auth       | Que una cuenta dada de baja siga entrando      |
+| Nadie se desactiva ni se quita el rol `usuarios` a sí mismo             | Quedarse sin quien administre las cuentas      |
+| Historial de cambios de cuentas, que nadie puede editar                 | Cambios de permisos sin rastro                 |
+| Sin «Recordar mis datos», la sesión se borra al cerrar el navegador     | Sesiones abiertas en equipos compartidos       |
+| La contraseña la guarda el gestor del navegador, nunca el sitio         | Robo de contraseñas guardadas en el sitio      |
+| Cookie de sesión `httpOnly`                                             | Robo de la sesión mediante XSS                 |
+| Sesión verificada contra el servidor de Auth en cada página             | Seguir usando una sesión ya cerrada            |
+| Cambio de contraseña exige la actual y cierra los otros dispositivos    | Uso de un celular con sesión abierta           |
+| Recuperación: 5 solicitudes por hora por IP y misma respuesta siempre   | Envío masivo de correos y sondeo de cuentas    |
+| Enlace de recuperación de un solo uso, vence en 1 hora                  | Reuso de un enlace viejo                       |
+| Abrir el enlace no lo gasta: se canjea recién al guardar la contraseña  | Filtros de correo que abren enlaces            |
+| Al restablecer se cierran las sesiones en **todos** los dispositivos    | Que un intruso siga dentro                     |
+| Aviso por correo cada vez que cambia la contraseña                      | Cambios que la persona no hizo                 |
+| `noindex` (metadata + cabecera `X-Robots-Tag`) y `robots.txt`           | Que el panel aparezca en buscadores            |
 
 ### Fichas de pacientes
 
@@ -654,6 +687,9 @@ Además, en todo el sitio: cabeceras de seguridad (CSP, HSTS, `X-Frame-Options`,
       redirige al login.
 - [ ] Cada administrador tiene solo los roles que necesita y su propia cuenta (nunca
       compartidas): los cuidadores, `pacientes_lectura` (ven fichas y registran dosis).
+- [ ] El rol `usuarios` lo tienen solo quienes administran el sistema (idealmente dos
+      personas, por si una no está). Revisa en `/admin/usuarios` que no queden cuentas
+      activas de personas que ya no trabajan en el hogar.
 
 **Claves y variables**
 

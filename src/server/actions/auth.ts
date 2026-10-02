@@ -69,6 +69,7 @@ export async function iniciarSesionAccion(
     validacion.data.email,
     validacion.data.password,
     typeof token === "string" ? token : "",
+    formData.get("recordar") === "on",
     obtenerIpCliente(await headers()),
   );
 

@@ -32,6 +32,11 @@ export type { Administrador, RolAdmin } from "@/server/repositories/auth";
 type OpcionesAcceso = {
   /** Ruta del panel a la que volver después de ingresar (ej: la ficha que abrió un QR). */
   volverA?: string;
+  /**
+   * Solo para «Mi cuenta» (y la estructura del panel): accesible aunque la contraseña sea
+   * temporal. Todo lo demás lleva a cambiarla primero.
+   */
+  permitirContrasenaTemporal?: boolean;
 };
 
 /**
@@ -49,7 +54,11 @@ export async function requerirRol(
   return admin;
 }
 
-/** Exige un administrador; si no lo hay, redirige al login (nunca devuelve null). */
+/**
+ * Exige un administrador; si no lo hay, redirige al login (nunca devuelve null). Con una
+ * contraseña temporal, lleva a «Mi cuenta» a cambiarla (la base de datos, mientras tanto,
+ * no le reconoce ningún rol).
+ */
 export async function requerirAdmin(opciones?: OpcionesAcceso): Promise<Administrador> {
   const sesion = await obtenerSesion();
   if (!sesion.activa) {
@@ -57,6 +66,9 @@ export async function requerirAdmin(opciones?: OpcionesAcceso): Promise<Administ
     redirect(`/admin/login?motivo=sesion-requerida${volverA}`);
   }
   if (!sesion.admin) redirect("/admin/login?motivo=sin-acceso");
+  if (sesion.admin.contrasenaTemporal && !opciones?.permitirContrasenaTemporal) {
+    redirect("/admin/cuenta");
+  }
   return sesion.admin;
 }
 
@@ -69,11 +81,15 @@ export type MotivoFalloInicioSesion =
  * Capas: límite de intentos por IP (10 por hora, frena ataques de fuerza bruta),
  * CAPTCHA opcional verificado por Supabase, y mensaje genérico ante credenciales
  * inválidas (no revela si el correo existe).
+ *
+ * recordar: «Recordar mis datos en este dispositivo» (sesión de 30 días); sin ella, la
+ * sesión se cierra al cerrar el navegador.
  */
 export async function iniciarSesion(
   email: string,
   contrasena: string,
   tokenCaptcha: string,
+  recordar: boolean,
   ip: string | null,
 ): Promise<{ ok: true } | { ok: false; motivo: MotivoFalloInicioSesion }> {
   try {
@@ -83,7 +99,7 @@ export async function iniciarSesion(
     return { ok: false, motivo: "interno" };
   }
 
-  const resultado = await iniciarSesionConContrasena(email, contrasena, tokenCaptcha);
+  const resultado = await iniciarSesionConContrasena(email, contrasena, tokenCaptcha, recordar);
   switch (resultado.tipo) {
     case "admin":
       return { ok: true };
@@ -123,7 +139,8 @@ export async function cambiarContrasenaAdmin(
   tokenCaptcha: string,
   ip: string | null,
 ): Promise<{ ok: true } | { ok: false; motivo: MotivoFalloCambioContrasena }> {
-  await requerirAdmin();
+  // También (sobre todo) con una contraseña temporal: es la forma de reemplazarla.
+  await requerirAdmin({ permitirContrasenaTemporal: true });
 
   try {
     if (!(await permitirIntento(ip, "login"))) return { ok: false, motivo: "limite" };
